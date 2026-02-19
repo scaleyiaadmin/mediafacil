@@ -1,0 +1,131 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Média Fácil Design System - Institucional, Clean, Profissional */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@layer base {
+  :root {
+    /* Cores baseadas na logo laranja */
+    --background: 30 20% 98%;
+    --foreground: 20 10% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 20 10% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 20 10% 15%;
+
+    /* Laranja institucional da logo */
+    --primary: 14 85% 45%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 30 15% 94%;
+    --secondary-foreground: 20 10% 25%;
+
+    --muted: 30 10% 96%;
+    --muted-foreground: 20 8% 50%;
+
+    --accent: 14 70% 95%;
+    --accent-foreground: 14 85% 35%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Status colors */
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+    --warning: 45 93% 47%;
+    --warning-foreground: 20 10% 15%;
+    --info: 217 91% 60%;
+    --info-foreground: 0 0% 100%;
+
+    --border: 30 15% 90%;
+    --input: 30 15% 90%;
+    --ring: 14 85% 45%;
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 20 10% 35%;
+    --sidebar-primary: 14 85% 45%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 14 70% 96%;
+    --sidebar-accent-foreground: 14 85% 35%;
+    --sidebar-border: 30 15% 92%;
+    --sidebar-ring: 14 85% 45%;
+  }
+
+  .dark {
+    --background: 20 15% 8%;
+    --foreground: 30 10% 95%;
+
+    --card: 20 15% 10%;
+    --card-foreground: 30 10% 95%;
+
+    --popover: 20 15% 10%;
+    --popover-foreground: 30 10% 95%;
+
+    --primary: 14 85% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 20 15% 15%;
+    --secondary-foreground: 30 10% 90%;
+
+    --muted: 20 15% 15%;
+    --muted-foreground: 30 10% 60%;
+
+    --accent: 14 40% 20%;
+    --accent-foreground: 14 85% 70%;
+
+    --destructive: 0 62% 40%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 60% 40%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 80% 50%;
+    --warning-foreground: 20 10% 10%;
+    --info: 199 70% 50%;
+    --info-foreground: 0 0% 100%;
+
+    --border: 20 15% 18%;
+    --input: 20 15% 18%;
+    --ring: 14 85% 50%;
+
+    --sidebar-background: 20 15% 8%;
+    --sidebar-foreground: 30 10% 80%;
+    --sidebar-primary: 14 85% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 14 30% 15%;
+    --sidebar-accent-foreground: 14 85% 70%;
+    --sidebar-border: 20 15% 18%;
+    --sidebar-ring: 14 85% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+/* Print styles */
+@media print {
+  .print\\:hidden {
+    display: none !important;
+  }
+  
+  .print\\:border-none {
+    border: none !important;
+  }
+  
+  .print\\:p-0 {
+    padding: 0 !important;
+  }
+}
