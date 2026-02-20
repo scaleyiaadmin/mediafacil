@@ -19,17 +19,64 @@ export default function Login() {
         setLoading(true);
 
         try {
-            const { error } = await supabase.auth.signInWithPassword({
+            console.log("Iniciando processo de login para:", email);
+
+            // 1. Verificar se o usuário existe na tabela pública e conferir a senha
+            const { data: dbUser, error: dbError } = await supabase
+                .from('usuarios')
+                .select('*')
+                .eq('email', email)
+                .single();
+
+            if (dbError || !dbUser) {
+                throw new Error("Usuário não encontrado em nossa base de dados.");
+            }
+
+            // Conferencia de senha simples (vulnerável, mas seguindo a lógica da tabela atual)
+            if (dbUser.senha !== password) {
+                throw new Error("E-mail ou senha incorretos.");
+            }
+
+            console.log("Usuário validado na tabela pública. Autenticando no Supabase Auth...");
+
+            // 2. Tentar login no Supabase Auth
+            const { error: authError } = await supabase.auth.signInWithPassword({
                 email,
                 password,
             });
 
-            if (error) throw error;
+            // 3. Se falhar no Auth (provavelmente usuário não existe no Auth), tentar cadastro silencioso
+            if (authError) {
+                console.warn("Falha no signInWithPassword, tentando signUp silencioso:", authError.message);
+
+                const { error: signUpError } = await supabase.auth.signUp({
+                    email,
+                    password,
+                    options: {
+                        data: {
+                            nome: dbUser.nome,
+                            entidade_id: dbUser.entidade_id,
+                        }
+                    }
+                });
+
+                if (signUpError) {
+                    // Se o erro for de usuário já existe, e mesmo assim falhou o login, 
+                    // pode ser uma discrepância de senhas entre a tabela e o auth.
+                    if (signUpError.message.includes("already registered")) {
+                        throw new Error("Erro de sincronização. Sua senha na tabela não confere com o acesso seguro. Contate o administrador.");
+                    }
+                    throw signUpError;
+                }
+
+                console.log("SignUp silencioso realizado.");
+            }
 
             toast.success("Login realizado com sucesso!");
             navigate("/");
         } catch (error: any) {
-            toast.error("Erro ao fazer login: " + (error.message || "Credenciais inválidas"));
+            console.error("Erro no login:", error);
+            toast.error(error.message || "Erro inesperado ao fazer login");
         } finally {
             setLoading(false);
         }
