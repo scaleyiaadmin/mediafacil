@@ -1,15 +1,13 @@
 import { searchPNCPItems, PNCPItem } from './pncp';
+import { searchReferences } from './referencias';
 
-interface SearchFilters {
+export interface SearchFilters {
     includePNCP: boolean;
-    includeBPS: boolean;
+    includeBPS: boolean; // Agora CMED
     includeSINAPI: boolean;
+    includeCATSER?: boolean;
 }
 
-/**
- * Palavras-chave para expansão semântica simples (IA Local/Heurística)
- * Isso ajuda a encontrar itens relacionados sem depender de uma API externa de NLP
- */
 const dicionarioSinonimos: Record<string, string[]> = {
     "cadeira": ["poltrona", "assento", "longarina"],
     "paracetamol": ["acetaminofeno", "analgésico", "antitérmico"],
@@ -26,7 +24,6 @@ export async function searchAllSources(termo: string, filters: SearchFilters): P
     const termoLower = termo.toLowerCase();
 
     // Expansão Semântica Inteligente
-    // Se o usuário buscar "cadeira", também buscamos termos relacionados para garantir densidade
     let buscaTermos = [termoLower];
     for (const [chave, sinonimos] of Object.entries(dicionarioSinonimos)) {
         if (termoLower.includes(chave)) {
@@ -35,50 +32,40 @@ export async function searchAllSources(termo: string, filters: SearchFilters): P
         }
     }
 
-    // Executar buscas
-    // Para simplificar e manter a performance, buscamos o termo principal no PNCP
-    // O PNCP já é a fonte primária. BPS e SINAPI são subconjuntos ou bases que emulamos via filtro PNCP.
-    const allResultsArrays = await Promise.all(buscaTermos.map(t => searchPNCPItems(t)));
+    // Preparar promessas de busca
+    const searchPromises: Promise<PNCPItem[]>[] = [];
+
+    // 1. PNCP (Sempre busca se selecionado)
+    if (filters.includePNCP) {
+        searchPromises.push(...buscaTermos.map(t => searchPNCPItems(t)));
+    }
+
+    // 2. Referências Reais (Supabase)
+    const refSources = {
+        catser: !!filters.includeCATSER,
+        sinapi: filters.includeSINAPI,
+        cmed: filters.includeBPS
+    };
+
+    if (refSources.catser || refSources.sinapi || refSources.cmed) {
+        searchPromises.push(searchReferences(termo, refSources));
+    }
+
+    // Executar todas as buscas em paralelo
+    const allResultsArrays = await Promise.all(searchPromises);
     const allItems = allResultsArrays.flat();
 
-    // Remover duplicatas por ID após expansão
+    // Remover duplicatas por ID
     const uniqueItemsMap = new Map<string, PNCPItem>();
     allItems.forEach(item => uniqueItemsMap.set(item.id, item));
     const uniqueItems = Array.from(uniqueItemsMap.values());
 
-    // Classificação Inteligente de Fontes (BPS/SINAPI Proxy)
-    const classifiedItems = uniqueItems.map(item => {
-        const textToAnalyze = (item.nome + " " + (item.orgao || "") + " " + (item.modalidade || "")).toLowerCase();
-
-        // Heurística BPS (Saúde)
-        const leadsHealth = [
-            'saude', 'hospital', 'medicamento', 'upa', 'ubs', 'secretaria municipal de saude',
-            'farmacia', 'medico', 'clinica', 'odontologico', 'vacina', 'unidade basica'
-        ].some(k => textToAnalyze.includes(k));
-
-        // Heurística SINAPI (Construção/Obras)
-        const leadsConst = [
-            'obra', 'engenharia', 'reforma', 'cimento', 'tijolo', 'concreto', 'pavimentação',
-            'asfalto', 'infraestrutura', 'secretaria de obras', 'construção civil', 'predial'
-        ].some(k => textToAnalyze.includes(k));
-
-        let fonte = "PNCP";
-        if (leadsHealth) fonte = "BPS (Est.)";
-        else if (leadsConst) fonte = "SINAPI (Est.)";
-
-        // Marcar se foi encontrado via expansão semântica
+    // Marcar metadata para busca inteligente
+    return uniqueItems.map(item => {
         const isExactMatch = item.nome.toLowerCase().includes(termoLower);
-        const metadata = isExactMatch ? undefined : "Busca Inteligente";
+        const metadata = isExactMatch ? item.metadata : (item.metadata ? `${item.metadata} • Busca Inteligente` : "Busca Inteligente");
 
-        return { ...item, fonte, metadata };
-    });
-
-    // Filtro final baseado na seleção do usuário
-    return classifiedItems.filter(item => {
-        if (item.fonte === "PNCP" && filters.includePNCP) return true;
-        if (item.fonte === "BPS (Est.)" && filters.includeBPS) return true;
-        if (item.fonte === "SINAPI (Est.)" && filters.includeSINAPI) return true;
-        return false;
+        return { ...item, metadata };
     });
 }
 

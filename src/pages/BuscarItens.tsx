@@ -1,48 +1,47 @@
-import { useState } from "react";
-import { Search, Plus, Check, ShoppingCart, ArrowRight } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, Plus, Check, ShoppingCart, ArrowRight, Loader2 } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Link } from "react-router-dom";
-
-interface Item {
-  id: string;
-  nome: string;
-  unidade: string;
-  fonte: string;
-  preco: number;
-}
+import { searchReferences } from "@/lib/referencias";
+import { PNCPItem as Item } from "@/lib/pncp";
 
 interface ItemSelecionado extends Item {
   quantidade: number;
 }
 
-const itensDisponiveis: Item[] = [
-  { id: "1", nome: "Caneta esferográfica azul", unidade: "UN", fonte: "PNCP", preco: 1.50 },
-  { id: "2", nome: "Caneta esferográfica preta", unidade: "UN", fonte: "BPS", preco: 1.45 },
-  { id: "3", nome: "Caneta esferográfica vermelha", unidade: "UN", fonte: "Painel de Preços", preco: 1.55 },
-  { id: "4", nome: "Papel A4 500 folhas", unidade: "PCT", fonte: "PNCP", preco: 24.90 },
-  { id: "5", nome: "Papel A4 resma 500 folhas", unidade: "RS", fonte: "NFe", preco: 23.50 },
-  { id: "6", nome: "Grampeador de mesa", unidade: "UN", fonte: "BPS", preco: 18.90 },
-  { id: "7", nome: "Clips para papel 2/0", unidade: "CX", fonte: "PNCP", preco: 3.20 },
-  { id: "8", nome: "Borracha branca", unidade: "UN", fonte: "Painel de Preços", preco: 0.85 },
-];
-
 export default function BuscarItens() {
   const [busca, setBusca] = useState("");
   const [itensSelecionados, setItensSelecionados] = useState<ItemSelecionado[]>([]);
   const [quantidades, setQuantidades] = useState<Record<string, number>>({});
+  const [itensFiltrados, setItensFiltrados] = useState<Item[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const itensFiltrados = busca.length >= 2 
-    ? itensDisponiveis.filter(item => 
-        item.nome.toLowerCase().includes(busca.toLowerCase())
-      )
-    : [];
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(async () => {
+      if (busca.length >= 3) {
+        setLoading(true);
+        try {
+          const results = await searchReferences(busca, { catser: true, sinapi: true, cmed: true });
+          setItensFiltrados(results);
+        } catch (error) {
+          console.error("Erro ao buscar referências:", error);
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        setItensFiltrados([]);
+      }
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [busca]);
 
   const handleSelecionar = (item: Item) => {
     const quantidade = quantidades[item.id] || 1;
     const jaExiste = itensSelecionados.find(i => i.id === item.id);
-    
+
     if (jaExiste) {
       setItensSelecionados(itensSelecionados.filter(i => i.id !== item.id));
     } else {
@@ -62,11 +61,16 @@ export default function BuscarItens() {
             <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
             <Input
               type="text"
-              placeholder="Ex: caneta, papel, grampeador..."
+              placeholder="Ex: caneta, papel, cimento, dipirona..."
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
               className="pl-12 h-12 text-lg"
             />
+            {loading && (
+              <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              </div>
+            )}
           </div>
         </div>
 
@@ -83,7 +87,7 @@ export default function BuscarItens() {
                   {itensFiltrados.map((item) => {
                     const selecionado = isItemSelecionado(item.id);
                     return (
-                      <div 
+                      <div
                         key={item.id}
                         className="flex items-center justify-between p-4 hover:bg-muted/30 transition-colors"
                       >
@@ -116,7 +120,7 @@ export default function BuscarItens() {
                               className="w-20 h-8 text-center"
                             />
                           </div>
-                          
+
                           <Button
                             size="sm"
                             variant={selecionado ? "default" : "outline"}

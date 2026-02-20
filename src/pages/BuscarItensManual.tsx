@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { ufs } from "@/data/regioes";
 import { cn } from "@/lib/utils";
 import { searchPNCPItems, PNCPItem } from "@/lib/pncp";
+import { searchReferences } from "@/lib/referencias";
 
 interface ItemDisponivel {
   id: string;
@@ -50,20 +51,44 @@ export default function BuscarItensManual() {
   const [fontesSelecionadas, setFontesSelecionadas] = useState<string[]>([]);
   const [ufsSelecionadas, setUfsSelecionadas] = useState<string[]>([]);
 
-  // Busca Online (Debounced)
+  // Busca Online e Referências (Debounced)
   useEffect(() => {
     const delayDebounceFn = setTimeout(async () => {
-      if (searchTerm.length >= 3 && fontesSelecionadas.includes("pncp")) {
+      if (searchTerm.length >= 3) {
         setIsSearching(true);
         try {
-          const results = await searchPNCPItems(searchTerm);
-          if (results.length === 0) {
-            toast.info("Nenhum item encontrado no PNCP para este termo no ano atual.");
+          const promises = [];
+
+          // 1. PNCP se selecionado
+          if (fontesSelecionadas.includes("pncp")) {
+            promises.push(searchPNCPItems(searchTerm));
+          } else {
+            promises.push(Promise.resolve([]));
           }
-          setItensOnline(results as ItemDisponivel[]);
+
+          // 2. Referências do Supabase
+          const refFilters = {
+            catser: fontesSelecionadas.includes("catser"),
+            sinapi: fontesSelecionadas.includes("sinapi"),
+            cmed: fontesSelecionadas.includes("cmed") || fontesSelecionadas.includes("bps")
+          };
+
+          if (refFilters.catser || refFilters.sinapi || refFilters.cmed) {
+            promises.push(searchReferences(searchTerm, refFilters));
+          } else {
+            promises.push(Promise.resolve([]));
+          }
+
+          const [pncpResults, refResults] = await Promise.all(promises);
+          const combined = [...pncpResults, ...refResults];
+
+          if (combined.length === 0 && fontesSelecionadas.length > 0) {
+            toast.info("Nenhum item encontrado para estas fontes.");
+          }
+          setItensOnline(combined as ItemDisponivel[]);
         } catch (error: any) {
           console.error(error);
-          toast.error(`Erro ao buscar no portal PNCP: ${error.message}`);
+          toast.error(`Erro na busca: ${error.message}`);
         } finally {
           setIsSearching(false);
         }

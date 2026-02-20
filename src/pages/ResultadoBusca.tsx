@@ -34,8 +34,9 @@ export default function ResultadoBusca() {
   // Filters State
   const [filters, setFilters] = useState({
     includePNCP: true,
-    includeBPS: true,
+    includeBPS: true, // Chamaremos de Saúde/CMED na UI
     includeSINAPI: true,
+    includeCATSER: true,
     uf: "all"
   });
 
@@ -92,7 +93,7 @@ export default function ResultadoBusca() {
   const ufs = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"];
 
   return (
-    <MainLayout title="Resultado da Busca" subtitle="Preços encontrados no PNCP, BPS (Est.) e SINAPI (Est.)">
+    <MainLayout title="Resultado da Busca" subtitle="Preços encontrados no PNCP, CMED, SINAPI e CATSER">
       <div className="flex flex-col lg:flex-row gap-6">
 
         {/* Sidebar de Filtros */}
@@ -123,7 +124,7 @@ export default function ResultadoBusca() {
                   onCheckedChange={(c) => setFilters(prev => ({ ...prev, includeBPS: !!c }))}
                 />
                 <Label htmlFor="bps" className="font-normal cursor-pointer flex items-center gap-2">
-                  BPS (Saúde)
+                  CMED (Saúde)
                   <span className="w-2 h-2 rounded-full bg-red-500" />
                 </Label>
               </div>
@@ -136,6 +137,17 @@ export default function ResultadoBusca() {
                 <Label htmlFor="sinapi" className="font-normal cursor-pointer flex items-center gap-2">
                   SINAPI (Obras)
                   <span className="w-2 h-2 rounded-full bg-green-500" />
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="catser"
+                  checked={filters.includeCATSER}
+                  onCheckedChange={(c) => setFilters(prev => ({ ...prev, includeCATSER: !!c }))}
+                />
+                <Label htmlFor="catser" className="font-normal cursor-pointer flex items-center gap-2">
+                  CATSER (Serviços)
+                  <span className="w-2 h-2 rounded-full bg-purple-500" />
                 </Label>
               </div>
             </div>
@@ -264,12 +276,15 @@ export default function ResultadoBusca() {
                       let badgeColor = "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100";
                       let badgeDot = "bg-blue-500";
 
-                      if (encontrado.fonte.includes("BPS")) {
+                      if (encontrado.fonte.includes("CMED") || encontrado.fonte.includes("BPS")) {
                         badgeColor = "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100";
                         badgeDot = "bg-red-500";
                       } else if (encontrado.fonte.includes("SINAPI")) {
                         badgeColor = "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100";
                         badgeDot = "bg-green-500";
+                      } else if (encontrado.fonte.includes("CATSER")) {
+                        badgeColor = "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-100";
+                        badgeDot = "bg-purple-500";
                       }
 
                       return (
