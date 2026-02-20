@@ -14,6 +14,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { supabase } from "@/lib/supabase";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import {
   Table,
   TableBody,
@@ -36,6 +39,12 @@ import {
   Clock,
   AlertTriangle,
   Calendar,
+  ArrowRight,
+  Loader2,
+  ChevronRight,
+  ChevronLeft,
+  Info,
+  Check,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 
@@ -163,11 +172,11 @@ const formatPhone = (value: string): string => {
 
 export default function PropostaFornecedor() {
   const { token } = useParams<{ token: string }>();
-  
+
   // State
-  const [itens, setItens] = useState<ItemCotacao[]>(mockSolicitacao.itens);
+  const [currentStep, setCurrentStep] = useState<number>(1);
+  const [itens, setItens] = useState<ItemCotacao[]>([]);
   const [status, setStatus] = useState<StatusProposta>("preenchimento");
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [cnpjConfirmacao, setCnpjConfirmacao] = useState("");
   const [cnpjDiferente, setCnpjDiferente] = useState(false);
   const [responsavelEnvio, setResponsavelEnvio] = useState<DadosResponsavelEnvio>({
@@ -176,13 +185,78 @@ export default function PropostaFornecedor() {
     telefone: "",
   });
   const [dataEnvio, setDataEnvio] = useState<Date | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [solicitacao, setSolicitacao] = useState<any>(null);
+  const [observacoes, setObservacoes] = useState("");
+  const [declinedReason, setDeclinedReason] = useState("");
+  const [showDeclineDialog, setShowDeclineDialog] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
-  // Cálculos de prazo
+  // Load live data from Supabase
+  useEffect(() => {
+    async function loadProposta() {
+      if (!token) return;
+
+      try {
+        setLoading(true);
+        // 1. Fetch the relation
+        const { data: rel, error: relError } = await supabase
+          .from('orcamento_fornecedores')
+          .select(`
+            *,
+            orcamentos (*, entidades (*), usuarios (*)),
+            fornecedores (*)
+          `)
+          .eq('token', token)
+          .single();
+
+        if (relError) throw relError;
+        setSolicitacao(rel);
+
+        // 2. Fetch the items
+        const { data: items, error: itemsError } = await supabase
+          .from('orcamento_itens')
+          .select('*')
+          .eq('orcamento_id', rel.orcamento_id);
+
+        if (itemsError) throw itemsError;
+
+        // 3. Map items and check for existing responses
+        const mappedItens = items.map(item => ({
+          id: item.id,
+          descricao: item.nome + (item.descricao ? ` - ${item.descricao}` : ''),
+          unidade: item.unidade,
+          quantidade: item.quantidade,
+          marca: "",
+          valorUnitario: 0
+        }));
+
+        setItens(mappedItens);
+
+        if (rel.status === 'replied') {
+          setStatus('enviado');
+          setDataEnvio(new Date(rel.data_resposta));
+        } else if (rel.status === 'declined') {
+          setStatus('enviado');
+        }
+
+      } catch (error) {
+        console.error("Error loading proposal:", error);
+        toast.error("Link de proposta inválido ou expirado.");
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadProposta();
+  }, [token]);
+
+  // Prazo calc
   const dataLimite = useMemo(() => {
-    const limite = new Date(mockSolicitacao.dataEnvio);
-    limite.setDate(limite.getDate() + mockSolicitacao.prazoEmDias);
+    if (!solicitacao) return new Date();
+    const limite = new Date(solicitacao.created_at);
+    limite.setDate(limite.getDate() + 10);
     return limite;
-  }, []);
+  }, [solicitacao]);
 
   const prazoExpirado = useMemo(() => {
     return new Date() > dataLimite;
@@ -193,29 +267,12 @@ export default function PropostaFornecedor() {
     return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
   }, [dataLimite]);
 
-  // Verificar se prazo expirou
   useEffect(() => {
     if (prazoExpirado && status !== "enviado") {
       setStatus("expirado");
     }
   }, [prazoExpirado, status]);
 
-  // Carregar dados salvos do localStorage
-  useEffect(() => {
-    const savedData = localStorage.getItem(`proposta-${token}`);
-    if (savedData) {
-      const parsed = JSON.parse(savedData);
-      setItens(parsed.itens);
-      if (parsed.status === "enviado") {
-        setStatus("enviado");
-        setDataEnvio(new Date(parsed.dataEnvio));
-      } else if (parsed.itens.some((i: ItemCotacao) => i.marca || i.valorUnitario > 0)) {
-        setStatus("salvo");
-      }
-    }
-  }, [token]);
-
-  // Cálculo do total geral
   const totalGeral = useMemo(() => {
     return itens.reduce((acc, item) => acc + item.quantidade * item.valorUnitario, 0);
   }, [itens]);
@@ -227,452 +284,530 @@ export default function PropostaFornecedor() {
         item.id === id ? { ...item, [field]: value } : item
       )
     );
-    if (status === "salvo") {
-      setStatus("preenchimento");
-    }
   };
 
-  const handleSave = () => {
-    localStorage.setItem(`proposta-${token}`, JSON.stringify({ itens, status: "salvo" }));
-    setStatus("salvo");
-    toast.success("Dados salvos com sucesso!", {
-      description: "Você pode fechar e retornar a qualquer momento.",
-    });
-  };
-
-  const handleOpenConfirmModal = () => {
-    // Validar se todos os campos estão preenchidos
-    const itensIncompletos = itens.filter(
-      (item) => !item.marca || item.valorUnitario <= 0
-    );
-    
-    if (itensIncompletos.length > 0) {
-      toast.error("Preencha todos os campos", {
-        description: `${itensIncompletos.length} item(ns) sem marca ou valor unitário.`,
-      });
+  const handleDecline = async () => {
+    if (!declinedReason.trim()) {
+      toast.error("Por favor, informe o motivo do declínio.");
       return;
     }
-    
-    setCnpjConfirmacao("");
-    setCnpjDiferente(false);
-    setResponsavelEnvio({ nome: "", cpf: "", telefone: "" });
-    setShowConfirmModal(true);
+
+    try {
+      setLoading(true);
+      const { error } = await supabase
+        .from('orcamento_fornecedores')
+        .update({
+          status: 'declined',
+          observacoes: `DECLINADO: ${declinedReason}`,
+          data_resposta: new Date().toISOString()
+        })
+        .eq('id', solicitacao.id);
+
+      if (error) throw error;
+
+      await supabase.from('notificacoes').insert({
+        entidade_id: solicitacao.orcamentos.entidade_id,
+        titulo: "Cotação Declinada",
+        mensagem: `${solicitacao.fornecedores.razao_social} declinou da cotação "${solicitacao.orcamentos.nome}". Motivo: ${declinedReason}`,
+        link: `/orcamento/${solicitacao.orcamento_id}`
+      });
+
+      setStatus("enviado");
+      setShowDeclineDialog(false);
+      toast.success("Resposta enviada. Obrigado!");
+    } catch (error: any) {
+      toast.error("Erro ao processar: " + error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleCnpjConfirmacao = (value: string) => {
-    const formatted = formatCNPJ(value);
-    setCnpjConfirmacao(formatted);
-    
-    // Comparar apenas números
-    const cnpjNumeros = formatted.replace(/\D/g, "");
-    const cnpjOriginalNumeros = mockSolicitacao.fornecedor.cnpj.replace(/\D/g, "");
-    
-    setCnpjDiferente(cnpjNumeros.length === 14 && cnpjNumeros !== cnpjOriginalNumeros);
+  const handleConfirmSubmit = async () => {
+    if (!solicitacao) return;
+
+    try {
+      setLoading(true);
+      const now = new Date();
+
+      const responsesToInsert = itens.map(item => ({
+        orcamento_fornecedor_id: solicitacao.id,
+        orcamento_item_id: item.id,
+        marca: item.marca,
+        valor_unitario: item.valorUnitario
+      }));
+
+      const { error: resError } = await supabase
+        .from('respostas_itens')
+        .insert(responsesToInsert);
+
+      if (resError) throw resError;
+
+      const { error: updError } = await supabase
+        .from('orcamento_fornecedores')
+        .update({
+          status: 'replied',
+          data_resposta: now.toISOString(),
+          observacoes: observacoes
+        })
+        .eq('id', solicitacao.id);
+
+      if (updError) throw updError;
+
+      await supabase.from('notificacoes').insert({
+        entidade_id: solicitacao.orcamentos.entidade_id,
+        titulo: "Novo Orçamento Recebido",
+        mensagem: `${solicitacao.fornecedores.razao_social} respondeu à cotação "${solicitacao.orcamentos.nome}".`,
+        link: `/orcamento/${solicitacao.orcamento_id}`
+      });
+
+      setDataEnvio(now);
+      setStatus("enviado");
+      setShowConfirmModal(false);
+      toast.success("Orçamento enviado com sucesso!");
+    } catch (error: any) {
+      toast.error("Erro ao enviar proposta: " + error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const canSubmit = useMemo(() => {
-    const cnpjNumeros = cnpjConfirmacao.replace(/\D/g, "");
-    const cpfNumeros = responsavelEnvio.cpf.replace(/\D/g, "");
-    const telefoneNumeros = responsavelEnvio.telefone.replace(/\D/g, "");
-    
+  // Steps navigation logic
+  const nextStep = () => {
+    if (currentStep === 2) {
+      const incompleto = itens.some(i => !i.marca || i.valorUnitario <= 0);
+      if (incompleto) {
+        toast.warning("Atenção", {
+          description: "Alguns itens estão sem marca ou valor. Deseja continuar?",
+          action: {
+            label: "Continuar",
+            onClick: () => setCurrentStep(prev => prev + 1)
+          }
+        });
+        return;
+      }
+    }
+    setCurrentStep(prev => prev + 1);
+  };
+
+  const prevStep = () => setCurrentStep(prev => prev - 1);
+
+  if (loading && !solicitacao) {
     return (
-      cnpjNumeros.length === 14 &&
-      responsavelEnvio.nome.trim().length >= 3 &&
-      cpfNumeros.length === 11 &&
-      telefoneNumeros.length >= 10
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
     );
-  }, [cnpjConfirmacao, responsavelEnvio]);
-
-  const handleConfirmSubmit = () => {
-    const now = new Date();
-    localStorage.setItem(
-      `proposta-${token}`,
-      JSON.stringify({ itens, status: "enviado", dataEnvio: now.toISOString(), responsavel: responsavelEnvio })
-    );
-    setDataEnvio(now);
-    setStatus("enviado");
-    setShowConfirmModal(false);
-    toast.success("Orçamento enviado com sucesso!");
-  };
+  }
 
   // Render: Prazo expirado
   if (status === "expirado") {
     return (
       <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 flex items-center justify-center p-4">
-        <Card className="max-w-md w-full text-center">
+        <Card className="max-w-md w-full text-center border-t-4 border-t-destructive shadow-xl">
           <CardHeader>
-            <img src={logo} alt="Média Fácil" className="h-12 mx-auto mb-4" />
-            <div className="flex justify-center mb-4">
+            <div className="mb-4 flex justify-center">
               <AlertTriangle className="h-16 w-16 text-destructive" />
             </div>
-            <CardTitle className="text-xl text-destructive">Prazo Encerrado</CardTitle>
+            <CardTitle className="text-2xl text-destructive font-black">Prazo Encerrado</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-muted-foreground">
-              O prazo para envio desta cotação expirou em{" "}
-              <strong>{formatDate(dataLimite)}</strong>.
+            <p className="text-slate-500 font-medium">
+              O prazo limite para envio desta cotação expirou em{" "}
+              <strong className="text-slate-900">{formatDate(dataLimite)}</strong>.
             </p>
-            <p className="text-sm text-muted-foreground">
-              Para mais informações, entre em contato com a prefeitura solicitante:
-            </p>
-            <div className="bg-muted/50 rounded-lg p-4 text-sm">
-              <p className="font-medium">{mockSolicitacao.solicitante.nomeEntidade}</p>
-              <p className="text-muted-foreground">{mockSolicitacao.solicitante.telefone}</p>
-              <p className="text-muted-foreground">{mockSolicitacao.solicitante.email}</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  // Render: Proposta enviada
-  if (status === "enviado" && dataEnvio) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 flex items-center justify-center p-4">
-        <Card className="max-w-lg w-full text-center">
-          <CardHeader>
-            <img src={logo} alt="Média Fácil" className="h-12 mx-auto mb-4" />
-            <div className="flex justify-center mb-4">
-              <CheckCircle2 className="h-16 w-16 text-green-600" />
-            </div>
-            <CardTitle className="text-xl text-green-700">Orçamento Enviado com Sucesso</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 space-y-2">
-              <p className="text-sm text-muted-foreground">Data e hora do envio:</p>
-              <p className="font-semibold text-lg">{formatDateTime(dataEnvio)}</p>
-            </div>
-            
-            <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-              <p className="text-sm text-muted-foreground">Total Geral da Proposta:</p>
-              <p className="font-bold text-2xl text-primary">{formatCurrency(totalGeral)}</p>
-            </div>
-
             <Separator />
-
-            <div className="text-sm text-muted-foreground space-y-2">
-              <p>Proposta enviada para:</p>
-              <p className="font-medium text-foreground">{mockSolicitacao.solicitante.nomeEntidade}</p>
+            <div className="text-sm text-left bg-slate-50 p-6 rounded-2xl space-y-2 border border-slate-100">
+              <p className="font-bold text-slate-800 tracking-tight">{solicitacao?.orcamentos?.entidades?.nome}</p>
+              <p className="text-slate-500">{solicitacao?.orcamentos?.entidades?.telefone}</p>
+              <p className="text-slate-500">{solicitacao?.orcamentos?.entidades?.email}</p>
             </div>
-
-            <p className="text-xs text-muted-foreground">
-              Esta proposta não poderá mais ser editada. Caso necessite fazer alterações, 
-              entre em contato com a prefeitura solicitante.
-            </p>
+            <Button variant="outline" className="w-full h-11 rounded-xl" onClick={() => window.close()}>
+              Fechar Página
+            </Button>
           </CardContent>
         </Card>
       </div>
     );
   }
 
-  // Render: Formulário de preenchimento
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
-      {/* Header */}
-      <header className="bg-card border-b sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto px-4 py-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <img src={logo} alt="Média Fácil" className="h-10" />
-              <div>
-                <h1 className="text-lg font-semibold text-foreground">Cotação de Preços</h1>
-                <p className="text-sm text-muted-foreground">Proposta Digital</p>
-              </div>
-            </div>
-            <Badge
-              variant={status === "salvo" ? "default" : "secondary"}
-              className={`text-sm px-3 py-1 ${
-                status === "salvo" 
-                  ? "bg-green-100 text-green-800 hover:bg-green-100" 
-                  : "bg-amber-100 text-amber-800 hover:bg-amber-100"
-              }`}
-            >
-              {status === "salvo" ? (
-                <><CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Salvo</>
+  // Render: Finalized/Replied or Declined
+  if (status === "enviado") {
+    const isDeclined = solicitacao?.status === 'declined' || solicitacao?.observacoes?.startsWith('DECLINADO');
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <Card className="max-w-lg w-full text-center shadow-2xl border-0 rounded-3xl overflow-hidden">
+          <CardHeader className="pt-12">
+            <div className="flex justify-center mb-8">
+              {isDeclined ? (
+                <div className="bg-amber-100 p-6 rounded-full animate-in zoom-in duration-500">
+                  <Clock className="h-16 w-16 text-amber-600" />
+                </div>
               ) : (
-                <><Clock className="h-3.5 w-3.5 mr-1" /> Em preenchimento</>
-              )}
-            </Badge>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-5xl mx-auto px-4 py-6 space-y-6">
-        {/* Prazo de validade */}
-        <Card className="border-amber-200 bg-amber-50/50">
-          <CardContent className="py-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-              <div className="flex items-center gap-2 text-amber-800">
-                <Calendar className="h-5 w-5" />
-                <span className="font-medium">
-                  Esta solicitação é válida por 10 (dez) dias corridos a partir da data de envio.
-                </span>
-              </div>
-              <div className="text-sm text-amber-700 space-y-1 sm:text-right">
-                <p>Enviado em: <strong>{formatDate(mockSolicitacao.dataEnvio)}</strong></p>
-                <p>Prazo limite: <strong>{formatDate(dataLimite)}</strong></p>
-                <p className="text-amber-900 font-semibold">
-                  {diasRestantes} dia(s) restante(s)
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Solicitante */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Building2 className="h-5 w-5 text-primary" />
-              Solicitante
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid sm:grid-cols-2 gap-4">
-            <div>
-              <p className="font-semibold text-foreground">{mockSolicitacao.solicitante.nomeEntidade}</p>
-              <div className="mt-2 space-y-1 text-sm text-muted-foreground">
-                <p className="flex items-center gap-2">
-                  <Phone className="h-4 w-4" />
-                  {mockSolicitacao.solicitante.telefone}
-                </p>
-                <p className="flex items-center gap-2">
-                  <Mail className="h-4 w-4" />
-                  {mockSolicitacao.solicitante.email}
-                </p>
-              </div>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Responsável pela solicitação:</p>
-              <p className="font-medium text-foreground flex items-center gap-2 mt-1">
-                <User className="h-4 w-4 text-primary" />
-                {mockSolicitacao.solicitante.responsavel}
-              </p>
-              {mockSolicitacao.solicitante.emailResponsavel && (
-                <p className="text-sm text-muted-foreground ml-6">
-                  {mockSolicitacao.solicitante.emailResponsavel}
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Dados do Fornecedor */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <FileText className="h-5 w-5 text-primary" />
-              Dados do Fornecedor
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid sm:grid-cols-2 gap-4 text-sm">
-              <div>
-                <p className="text-muted-foreground">Razão Social:</p>
-                <p className="font-medium">{mockSolicitacao.fornecedor.razaoSocial}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">CNPJ:</p>
-                <p className="font-medium">{mockSolicitacao.fornecedor.cnpj}</p>
-              </div>
-              <div className="sm:col-span-2">
-                <p className="text-muted-foreground">Endereço:</p>
-                <p className="font-medium">
-                  {mockSolicitacao.fornecedor.endereco}, {mockSolicitacao.fornecedor.cidade} - {mockSolicitacao.fornecedor.uf}, CEP {mockSolicitacao.fornecedor.cep}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Lista de Itens */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Itens para Cotação</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0 sm:p-6">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="min-w-[200px]">Descrição</TableHead>
-                    <TableHead className="text-center w-24">Unidade</TableHead>
-                    <TableHead className="text-center w-20">Qtd.</TableHead>
-                    <TableHead className="w-32">Marca</TableHead>
-                    <TableHead className="w-36">Valor Unit. (R$)</TableHead>
-                    <TableHead className="text-right w-32">Total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {itens.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium">{item.descricao}</TableCell>
-                      <TableCell className="text-center">
-                        <Badge variant="outline" className="font-normal">
-                          {item.unidade}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-center font-semibold text-primary">
-                        {item.quantidade}
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          value={item.marca}
-                          onChange={(e) => handleItemChange(item.id, "marca", e.target.value)}
-                          placeholder="Marca"
-                          className="h-9"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={item.valorUnitario || ""}
-                          onChange={(e) =>
-                            handleItemChange(item.id, "valorUnitario", parseFloat(e.target.value) || 0)
-                          }
-                          placeholder="0,00"
-                          className="h-9"
-                        />
-                      </TableCell>
-                      <TableCell className="text-right font-semibold">
-                        {formatCurrency(item.quantidade * item.valorUnitario)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-                <TableFooter>
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-right font-semibold text-base">
-                      Total Geral da Proposta:
-                    </TableCell>
-                    <TableCell className="text-right font-bold text-lg text-primary">
-                      {formatCurrency(totalGeral)}
-                    </TableCell>
-                  </TableRow>
-                </TableFooter>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Declaração de Finalidade */}
-        <Card className="border-blue-200 bg-blue-50/50">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold text-blue-900">
-              Declaração de Finalidade
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-blue-800 leading-relaxed">
-              A presente solicitação tem como finalidade exclusiva a pesquisa de preços de mercado, 
-              para subsidiar eventual instrução de processo administrativo e/ou futura contratação pública, 
-              não constituindo pedido de fornecimento, ordem de compra, contrato ou garantia de contratação, 
-              sendo utilizada apenas como referência para formação de preço estimado, conforme a legislação aplicável.
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Botões de Ação */}
-        <div className="flex flex-col sm:flex-row gap-3 justify-end pb-8">
-          <Button variant="outline" size="lg" onClick={handleSave} className="gap-2">
-            <Save className="h-4 w-4" />
-            Salvar orçamento
-          </Button>
-          <Button size="lg" onClick={handleOpenConfirmModal} className="gap-2">
-            <Send className="h-4 w-4" />
-            Enviar orçamento para a Prefeitura
-          </Button>
-        </div>
-      </main>
-
-      {/* Modal de Confirmação */}
-      <Dialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Confirmar Envio do Orçamento</DialogTitle>
-            <DialogDescription>
-              Por favor, confirme os dados abaixo antes de enviar a proposta.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            {/* Confirmação de CNPJ */}
-            <div className="space-y-2">
-              <Label htmlFor="cnpj-confirmacao">Confirme o CNPJ da empresa *</Label>
-              <Input
-                id="cnpj-confirmacao"
-                value={cnpjConfirmacao}
-                onChange={(e) => handleCnpjConfirmacao(e.target.value)}
-                placeholder="00.000.000/0000-00"
-                maxLength={18}
-              />
-              {cnpjDiferente && (
-                <div className="bg-amber-50 border border-amber-200 rounded-md p-3 text-sm text-amber-800">
-                  <AlertTriangle className="h-4 w-4 inline mr-2" />
-                  O CNPJ informado é diferente do cadastro inicial. Ao confirmar, os dados da proposta serão atualizados para este CNPJ.
+                <div className="bg-green-100 p-6 rounded-full animate-in zoom-in duration-500">
+                  <CheckCircle2 className="h-16 w-16 text-green-600" />
                 </div>
               )}
             </div>
+            <CardTitle className={`text-3xl font-black tracking-tight ${isDeclined ? 'text-amber-700' : 'text-green-700'}`}>
+              {isDeclined ? 'Resposta Enviada' : 'Proposta Protocolada!'}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-8 pb-12 px-10">
+            <p className="text-slate-500 text-lg font-medium leading-relaxed">
+              {isDeclined
+                ? "Sua decisão de não participar desta cotação foi registrada com sucesso. Agradecemos o seu retorno."
+                : "Recebemos sua cotação de preços. O protocolo foi gerado e a entidade solicitante já foi notificada."}
+            </p>
 
-            <Separator />
-
-            {/* Dados do Responsável */}
-            <div className="space-y-4">
-              <p className="text-sm font-medium">Dados do Responsável pela Proposta *</p>
-              
-              <div className="space-y-2">
-                <Label htmlFor="nome-responsavel">Nome completo</Label>
-                <Input
-                  id="nome-responsavel"
-                  value={responsavelEnvio.nome}
-                  onChange={(e) =>
-                    setResponsavelEnvio((prev) => ({ ...prev, nome: e.target.value }))
-                  }
-                  placeholder="Nome do responsável"
-                />
+            {!isDeclined && (
+              <div className="bg-primary/5 border-2 border-primary/5 rounded-3xl p-8 transition-all hover:scale-105">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Valor da sua proposta:</p>
+                <p className="font-black text-4xl text-primary">{formatCurrency(totalGeral)}</p>
               </div>
+            )}
 
-              <div className="space-y-2">
-                <Label htmlFor="cpf-responsavel">CPF</Label>
-                <Input
-                  id="cpf-responsavel"
-                  value={responsavelEnvio.cpf}
-                  onChange={(e) =>
-                    setResponsavelEnvio((prev) => ({ ...prev, cpf: formatCPF(e.target.value) }))
-                  }
-                  placeholder="000.000.000-00"
-                  maxLength={14}
-                />
+            <div className="text-xs font-bold text-slate-400 uppercase tracking-widest pt-4">
+              Enviado em {formatDateTime(dataEnvio || new Date())}
+            </div>
+
+            <Button variant="outline" className="w-full h-14 rounded-2xl font-bold text-slate-600 border-2 hover:bg-slate-50 transition-all" onClick={() => window.close()}>
+              Encerrar Sessão
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50/50">
+      {/* Step Indicator Header - Minimalist */}
+      <div className="bg-white border-b sticky top-0 z-50">
+        <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center">
+              <FileText className="h-4 w-4 text-white" />
+            </div>
+            <span className="font-bold text-slate-900 tracking-tight">Proposta Digital</span>
+          </div>
+
+          <div className="flex items-center gap-4">
+            {[1, 2, 3].map((step) => (
+              <div key={step} className="flex items-center gap-2">
+                <div className={`h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-all ${currentStep === step ? 'bg-primary text-white' :
+                    currentStep > step ? 'bg-green-500 text-white' : 'bg-slate-100 text-slate-400'
+                  }`}>
+                  {currentStep > step ? <Check className="h-3 w-3" /> : step}
+                </div>
+                {step < 3 && <div className="w-4 h-[2px] bg-slate-100 rounded-full" />}
               </div>
+            ))}
+          </div>
+        </div>
+      </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="telefone-responsavel">Telefone</Label>
-                <Input
-                  id="telefone-responsavel"
-                  value={responsavelEnvio.telefone}
-                  onChange={(e) =>
-                    setResponsavelEnvio((prev) => ({ ...prev, telefone: formatPhone(e.target.value) }))
-                  }
-                  placeholder="(00) 00000-0000"
-                  maxLength={15}
-                />
+      <main className="max-w-4xl mx-auto px-6 py-10">
+        {/* STEP 1: Identification + Items Overview */}
+        {currentStep === 1 && (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="space-y-1">
+              <h2 className="text-2xl font-bold text-slate-900">Olá, {solicitacao?.fornecedores?.razao_social?.split(' ')[0] || 'Fornecedor'}</h2>
+              <p className="text-slate-500 text-sm">Você recebeu uma solicitação de cotação da <strong>{solicitacao?.orcamentos?.entidades?.nome}</strong>.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card className="md:col-span-2 border-slate-200/60 shadow-sm">
+                <CardHeader className="pb-3 border-b border-slate-50">
+                  <CardTitle className="text-sm font-bold flex items-center gap-2">
+                    <Info className="h-4 w-4 text-primary" />
+                    Itens Solicitados
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader className="bg-slate-50/50">
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead className="text-[10px] font-bold uppercase py-2">Descrição</TableHead>
+                        <TableHead className="text-center text-[10px] font-bold uppercase py-2">Qtd</TableHead>
+                        <TableHead className="text-center text-[10px] font-bold uppercase py-2">Unidade</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {itens.map((item) => (
+                        <TableRow key={item.id} className="h-12">
+                          <TableCell className="text-xs font-medium text-slate-700">{item.descricao}</TableCell>
+                          <TableCell className="text-center text-xs font-bold text-primary">{item.quantidade}</TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant="outline" className="text-[10px] font-bold px-2 py-0 h-5 bg-slate-50 border-slate-200">{item.unidade}</Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+
+              <div className="space-y-6">
+                <Card className="border-slate-200/60 shadow-sm">
+                  <CardHeader className="pb-3 border-b border-slate-50">
+                    <CardTitle className="text-sm font-bold">Prazo Limite</CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-3 text-amber-600 bg-amber-50 p-3 rounded-lg border border-amber-100">
+                      <Clock className="h-4 w-4" />
+                      <div>
+                        <p className="text-xs font-bold">{formatDate(dataLimite)}</p>
+                        <p className="text-[10px] font-medium opacity-80">{diasRestantes} dias restantes</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <div className="flex flex-col gap-3">
+                  <Button onClick={nextStep} className="w-full h-11 text-xs font-bold group">
+                    Participar da Cotação
+                    <ChevronRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                  </Button>
+                  <Button variant="outline" onClick={() => setShowDeclineDialog(true)} className="w-full h-11 text-xs font-bold text-slate-500 border-slate-200">
+                    Não tenho interesse
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
+        )}
 
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setShowConfirmModal(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleConfirmSubmit} disabled={!canSubmit} className="gap-2">
-              <CheckCircle2 className="h-4 w-4" />
-              Confirmar envio
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        {/* STEP 2: Compact Quotation Table */}
+        {currentStep === 2 && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+            <div className="flex flex-col sm:flex-row justify-between items-end gap-4">
+              <div className="space-y-1">
+                <h2 className="text-xl font-bold text-slate-900">Preencher Cotação</h2>
+                <p className="text-sm text-slate-400 font-medium">Insira os valores unitários e marcas dos itens.</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Estimado</p>
+                <p className="text-2xl font-black text-primary">{formatCurrency(totalGeral)}</p>
+              </div>
+            </div>
+
+            <Card className="border-slate-200/60 shadow-sm overflow-hidden">
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader className="bg-slate-50/50">
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className="text-[10px] font-bold uppercase py-3 px-6">Item</TableHead>
+                      <TableHead className="w-[180px] text-[10px] font-bold uppercase py-3">Marca/Modelo</TableHead>
+                      <TableHead className="w-[150px] text-[10px] font-bold uppercase py-3">Valor Unit.</TableHead>
+                      <TableHead className="text-right text-[10px] font-bold uppercase py-3 px-6">Subtotal</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {itens.map((item) => (
+                      <TableRow key={item.id} className="h-16 group hover:bg-slate-50/30 transition-colors">
+                        <TableCell className="px-6 py-4">
+                          <p className="text-xs font-bold text-slate-700">{item.descricao}</p>
+                          <p className="text-[10px] text-slate-400 font-medium">{item.quantidade} {item.unidade}</p>
+                        </TableCell>
+                        <TableCell className="py-2">
+                          <Input
+                            placeholder="Marca"
+                            value={item.marca}
+                            onChange={(e) => handleItemChange(item.id, "marca", e.target.value)}
+                            className="h-9 text-xs border-slate-200 focus:border-primary/50 transition-all rounded-md"
+                          />
+                        </TableCell>
+                        <TableCell className="py-2">
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-300">R$</span>
+                            <Input
+                              type="number"
+                              placeholder="0,00"
+                              value={item.valorUnitario || ""}
+                              onChange={(e) => handleItemChange(item.id, "valorUnitario", parseFloat(e.target.value) || 0)}
+                              className="h-9 pl-8 text-xs font-bold border-slate-200 focus:border-primary/50 transition-all rounded-md"
+                            />
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right px-6 font-bold text-slate-900 text-xs">
+                          {formatCurrency(item.quantidade * item.valorUnitario)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+
+            <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200/60 shadow-sm">
+              <Button variant="ghost" onClick={prevStep} className="text-slate-400 text-xs font-bold h-10 px-4">
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Voltar
+              </Button>
+              <Button onClick={nextStep} className="h-10 px-6 font-bold text-xs">
+                Revisar e Finalizar
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 3: Unified Review & Finalization */}
+        {currentStep === 3 && (
+          <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+            <div className="space-y-1">
+              <h2 className="text-2xl font-bold text-slate-900">Revisão Final</h2>
+              <p className="text-slate-500 text-sm font-medium">Complete os dados para protocolar sua proposta.</p>
+            </div>
+
+            <Card className="border-slate-200/60 shadow-md">
+              <div className="bg-slate-900 p-6 text-white flex justify-between items-center rounded-t-xl">
+                <div>
+                  <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest mb-1">Total da Proposta</p>
+                  <p className="text-3xl font-black">{formatCurrency(totalGeral)}</p>
+                </div>
+                <div className="text-right opacity-60">
+                  <p className="text-[10px] font-bold uppercase tracking-widest mb-1">Itens</p>
+                  <p className="font-bold text-sm">{itens.filter(i => i.valorUnitario > 0).length} de {itens.length}</p>
+                </div>
+              </div>
+              <CardContent className="p-8 space-y-8">
+                <div className="space-y-3">
+                  <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Observações (Opcional)</Label>
+                  <textarea
+                    className="w-full h-24 p-4 text-xs font-medium text-slate-700 border border-slate-200 rounded-lg focus:ring-1 focus:ring-primary/20 focus:border-primary/50 outline-none resize-none transition-all bg-slate-50/30"
+                    placeholder="Validade do orçamento, prazos de entrega, etc..."
+                    value={observacoes}
+                    onChange={(e) => setObservacoes(e.target.value)}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Responsável *</Label>
+                    <Input
+                      value={responsavelEnvio.nome}
+                      onChange={(e) => setResponsavelEnvio(p => ({ ...p, nome: e.target.value }))}
+                      placeholder="Seu Nome"
+                      className="h-10 text-xs font-medium border-slate-200"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">CNPJ Empresa *</Label>
+                    <Input
+                      value={cnpjConfirmacao}
+                      onChange={(e) => {
+                        const f = formatCNPJ(e.target.value);
+                        setCnpjConfirmacao(f);
+                        setCnpjDiferente(f.replace(/\D/g, "") !== solicitacao?.fornecedores?.cnpj?.replace(/\D/g, ""));
+                      }}
+                      placeholder="00.000.000/0000-00"
+                      className="h-10 text-xs font-medium border-slate-200"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Seu CPF *</Label>
+                    <Input
+                      value={responsavelEnvio.cpf}
+                      onChange={(e) => setResponsavelEnvio(p => ({ ...p, cpf: formatCPF(e.target.value) }))}
+                      placeholder="000.000.000-00"
+                      className="h-10 text-xs font-medium border-slate-200"
+                      maxLength={14}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">WhatsApp *</Label>
+                    <Input
+                      value={responsavelEnvio.telefone}
+                      onChange={(e) => setResponsavelEnvio(p => ({ ...p, telefone: formatPhone(e.target.value) }))}
+                      placeholder="(00) 00000-0000"
+                      className="h-10 text-xs font-medium border-slate-200"
+                      maxLength={15}
+                    />
+                  </div>
+                </div>
+
+                {cnpjDiferente && (
+                  <div className="p-3 bg-amber-50 border border-amber-100 rounded-lg text-[10px] text-amber-700 font-bold flex gap-3 italic">
+                    <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+                    O CNPJ informado é diferente do cadastrado inicialmente.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <div className="flex justify-between items-center pt-4">
+              <Button variant="ghost" onClick={prevStep} className="text-slate-400 text-xs font-bold h-10 px-4">
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Editar Itens
+              </Button>
+              <Button
+                size="lg"
+                onClick={() => setShowConfirmModal(true)}
+                disabled={!responsavelEnvio.nome || responsavelEnvio.cpf.length < 14 || !cnpjConfirmacao}
+                className="h-12 px-8 rounded-xl font-bold text-xs bg-primary hover:bg-slate-900 shadow-lg shadow-primary/20 transition-all flex gap-3 items-center group"
+              >
+                PROTOCOLAR AGORA
+                <Send className="h-4 w-4 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+              </Button>
+            </div>
+          </div>
+        )}
+      </main>
+
+      {showConfirmModal && (
+        <Dialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
+          <DialogContent className="sm:max-w-md rounded-2xl p-0 border-0 shadow-2xl overflow-hidden bg-white">
+            <div className="h-1 bg-primary w-full"></div>
+            <div className="p-8">
+              <DialogHeader>
+                <div className="mx-auto h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+                  <Send className="h-7 w-7 text-primary" />
+                </div>
+                <DialogTitle className="text-xl font-bold text-center">Confirmar Envio?</DialogTitle>
+                <DialogDescription className="text-center text-slate-500 text-sm py-4">
+                  Sua proposta de <strong className="text-slate-900">{formatCurrency(totalGeral)}</strong> será enviada para <strong>{solicitacao?.orcamentos?.entidades?.nome}</strong>.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="flex flex-col gap-3 sm:flex-row mt-4">
+                <Button variant="ghost" className="flex-1 h-11 rounded-xl font-bold text-slate-400" onClick={() => setShowConfirmModal(false)}>Ajustar</Button>
+                <Button className="flex-1 h-11 rounded-xl font-bold bg-primary text-white" onClick={handleConfirmSubmit}>Confirmar</Button>
+              </DialogFooter>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {showDeclineDialog && (
+        <Dialog open={showDeclineDialog} onOpenChange={setShowDeclineDialog}>
+          <DialogContent className="sm:max-w-md rounded-2xl p-0 border-0 shadow-2xl overflow-hidden bg-white">
+            <div className="h-1 bg-amber-400 w-full"></div>
+            <div className="p-8">
+              <DialogHeader>
+                <div className="mx-auto h-16 w-16 bg-amber-50 rounded-full flex items-center justify-center mb-4">
+                  <Clock className="h-7 w-7 text-amber-600" />
+                </div>
+                <DialogTitle className="text-xl font-bold text-center text-amber-900">Declinar Convite</DialogTitle>
+                <DialogDescription className="text-center text-slate-500 text-sm py-2">
+                  Por favor, informe o motivo do declínio para que possamos melhorar nossa comunicação futuramento.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-4">
+                <textarea
+                  className="w-full h-28 p-4 border border-slate-200 rounded-xl outline-none focus:border-amber-200 bg-slate-50/30 transition-all resize-none text-sm font-medium text-slate-700"
+                  placeholder="Ex: Não trabalhamos com esta marca..."
+                  value={declinedReason}
+                  onChange={(e) => setDeclinedReason(e.target.value)}
+                />
+              </div>
+              <DialogFooter className="flex flex-col gap-3 sm:flex-row mt-4">
+                <Button variant="ghost" className="flex-1 h-11 rounded-xl font-bold text-slate-400" onClick={() => setShowDeclineDialog(false)}>Cancelar</Button>
+                <Button variant="destructive" className="flex-1 h-11 rounded-xl font-bold" onClick={handleDecline}>Confirmar Declínio</Button>
+              </DialogFooter>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

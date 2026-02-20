@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { Bell, FileText, Clock, CheckCircle, X } from "lucide-react";
+import { Bell, FileText, Clock, CheckCircle, X, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -12,96 +13,122 @@ import { ptBR } from "date-fns/locale";
 
 interface Notification {
   id: string;
-  type: "new_quote" | "deadline_expired" | "completed";
-  message: string;
-  orcamentoNome: string;
-  timestamp: Date;
-  read: boolean;
+  titulo: string;
+  mensagem: string;
+  link: string | null;
+  lida: boolean;
+  created_at: string;
 }
 
-const mockNotifications: Notification[] = [
-  {
-    id: "1",
-    type: "new_quote",
-    message: "Novo orçamento recebido de fornecedor",
-    orcamentoNome: "Material de Escritório",
-    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-    read: false,
-  },
-  {
-    id: "2",
-    type: "deadline_expired",
-    message: "Prazo de fornecedores encerrado",
-    orcamentoNome: "Equipamentos de Informática",
-    timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000), // 5 hours ago
-    read: false,
-  },
-  {
-    id: "3",
-    type: "completed",
-    message: "Orçamento finalizado",
-    orcamentoNome: "Medicamentos – Atenção Básica",
-    timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1 day ago
-    read: true,
-  },
-  {
-    id: "4",
-    type: "new_quote",
-    message: "Novo orçamento recebido de fornecedor",
-    orcamentoNome: "Material de Limpeza",
-    timestamp: new Date(Date.now() - 48 * 60 * 60 * 1000), // 2 days ago
-    read: true,
-  },
-  {
-    id: "5",
-    type: "deadline_expired",
-    message: "Prazo de fornecedores encerrado",
-    orcamentoNome: "Mobiliário Escolar",
-    timestamp: new Date(Date.now() - 72 * 60 * 60 * 1000), // 3 days ago
-    read: true,
-  },
-];
-
-const getNotificationIcon = (type: Notification["type"]) => {
-  switch (type) {
-    case "new_quote":
-      return <FileText className="h-4 w-4 text-info" />;
-    case "deadline_expired":
-      return <Clock className="h-4 w-4 text-destructive" />;
-    case "completed":
-      return <CheckCircle className="h-4 w-4 text-success" />;
-  }
+const getNotificationIcon = (titulo: string) => {
+  if (titulo.includes("Recebido")) return <FileText className="h-4 w-4 text-blue-500" />;
+  if (titulo.includes("Expirado")) return <Clock className="h-4 w-4 text-red-500" />;
+  return <CheckCircle className="h-4 w-4 text-green-500" />;
 };
 
-const getNotificationEmoji = (type: Notification["type"]) => {
-  switch (type) {
-    case "new_quote":
-      return "📩";
-    case "deadline_expired":
-      return "⏳";
-    case "completed":
-      return "✅";
-  }
+const getNotificationEmoji = (titulo: string) => {
+  if (titulo.includes("Recebido")) return "📩";
+  if (titulo.includes("Expirado")) return "⏳";
+  return "✅";
 };
 
 export function NotificationDropdown() {
-  const [notifications, setNotifications] = useState(mockNotifications);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  useEffect(() => {
+    fetchNotifications();
 
-  const markAsRead = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-    );
+    // Real-time subscription
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notificacoes',
+        },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            setNotifications(prev => [payload.new as Notification, ...prev]);
+          } else if (payload.eventType === 'UPDATE') {
+            setNotifications(prev => prev.map(n => n.id === payload.new.id ? payload.new as Notification : n));
+          } else if (payload.eventType === 'DELETE') {
+            setNotifications(prev => prev.filter(n => n.id !== payload.old.id));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  async function fetchNotifications() {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('notificacoes')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (error) throw error;
+      setNotifications(data || []);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const unreadCount = notifications.filter((n) => !n.lida).length;
+
+  const markAsRead = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('notificacoes')
+        .update({ lida: true })
+        .eq('id', id);
+
+      if (error) throw error;
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, lida: true } : n))
+      );
+    } catch (error) {
+      console.error("Error marking as read:", error);
+    }
   };
 
-  const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  const markAllAsRead = async () => {
+    try {
+      const { error } = await supabase
+        .from('notificacoes')
+        .update({ lida: true })
+        .eq('lida', false);
+
+      if (error) throw error;
+      setNotifications((prev) => prev.map((n) => ({ ...n, lida: true })));
+    } catch (error) {
+      console.error("Error marking all as read:", error);
+    }
   };
 
-  const removeNotification = (id: string) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  const removeNotification = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('notificacoes')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+    } catch (error) {
+      console.error("Error removing notification:", error);
+    }
   };
 
   return (
@@ -131,7 +158,11 @@ export function NotificationDropdown() {
           )}
         </div>
         <ScrollArea className="h-80">
-          {notifications.length === 0 ? (
+          {loading ? (
+            <div className="flex justify-center items-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          ) : notifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <Bell className="h-8 w-8 text-muted-foreground/50 mb-2" />
               <p className="text-sm text-muted-foreground">
@@ -143,22 +174,22 @@ export function NotificationDropdown() {
               {notifications.map((notification) => (
                 <div
                   key={notification.id}
-                  className={`group flex items-start gap-3 px-4 py-3 hover:bg-accent/50 transition-colors cursor-pointer ${
-                    !notification.read ? "bg-accent/30" : ""
-                  }`}
+                  className={`group flex items-start gap-3 px-4 py-3 hover:bg-accent/50 transition-colors cursor-pointer ${!notification.lida ? "bg-accent/30" : ""
+                    }`}
                   onClick={() => markAsRead(notification.id)}
                 >
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted">
-                    {getNotificationIcon(notification.type)}
+                    {getNotificationIcon(notification.titulo)}
                   </div>
                   <div className="flex-1 space-y-1">
                     <p className="text-sm text-foreground leading-tight">
-                      <span className="mr-1">{getNotificationEmoji(notification.type)}</span>
-                      {notification.message} em{" "}
-                      <span className="font-medium">{notification.orcamentoNome}</span>
+                      <span className="mr-1">{getNotificationEmoji(notification.titulo)}</span>
+                      <span className="font-medium">{notification.titulo}</span>
+                      <br />
+                      <span className="text-muted-foreground">{notification.mensagem}</span>
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {formatDistanceToNow(notification.timestamp, {
+                      {formatDistanceToNow(new Date(notification.created_at), {
                         addSuffix: true,
                         locale: ptBR,
                       })}

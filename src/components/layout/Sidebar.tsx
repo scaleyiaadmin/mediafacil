@@ -1,7 +1,9 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, FilePlus, FileText, Users, ChevronLeft, ChevronRight } from "lucide-react";
+import { LayoutDashboard, FilePlus, FileText, Users, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSidebarContext } from "@/contexts/SidebarContext";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 import logo from "@/assets/logo.png";
 
 const navigation = [
@@ -13,7 +15,13 @@ const navigation = [
 
 export function Sidebar() {
   const location = useLocation();
-  const { collapsed, toggleCollapsed } = useSidebarContext();
+  const { collapsed, toggleCollapsed, userRole, loadingRole } = useSidebarContext();
+
+  const navigation = [
+    { name: "Dashboard", href: "/", icon: LayoutDashboard },
+    { name: "Novo Orçamento", href: "/novo-orcamento", icon: FilePlus },
+    ...(userRole === 'super_admin' ? [{ name: "Fornecedores", href: "/fornecedores", icon: Users }] : []),
+  ];
 
   return (
     <aside

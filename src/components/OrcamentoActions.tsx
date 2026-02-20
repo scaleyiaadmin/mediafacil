@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Eye, Pencil, Copy, Trash2, CheckCircle, RefreshCw } from "lucide-react";
+import { Eye, Pencil, Copy, Trash2, CheckCircle, RefreshCw, Loader2 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -82,16 +83,48 @@ export function OrcamentoActions({ id, status, onDuplicate, onDelete, onFinalize
     onResend?.(id);
   };
 
-  const handleConfirmFinalize = () => {
-    // Simulação: senha correta é "1234"
-    if (password === "1234") {
-      toast.success("Orçamento finalizado com sucesso!");
-      onFinalize?.(id);
-      setShowFinalizeDialog(false);
-      setPassword("");
-      setPasswordError(false);
-    } else {
-      setPasswordError(true);
+  const [isVerifying, setIsVerifying] = useState(false);
+
+  const handleConfirmFinalize = async () => {
+    try {
+      setIsVerifying(true);
+      // Verify password against database
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('id')
+        .eq('senha', password)
+        .limit(1);
+
+      if (error) {
+        console.error("Database error during password check:", error);
+        toast.error("Erro ao acessar banco de dados. Verifique a tabela 'usuarios'.");
+        return;
+      }
+
+      if (data && data.length > 0) {
+        toast.success("Orçamento finalizado com sucesso!");
+        onFinalize?.(id);
+        setShowFinalizeDialog(false);
+        setPassword("");
+        setPasswordError(false);
+      } else {
+        // Diagnostic: Check if any users exist at all
+        const { count } = await supabase
+          .from('usuarios')
+          .select('*', { count: 'exact', head: true });
+
+        if (count === 0) {
+          toast.error("A tabela de usuários está vazia. Rode o script SQL novamente.");
+        } else {
+          setPasswordError(true);
+          toast.error("Senha incorreta");
+        }
+      }
+    } catch (err: any) {
+      console.error("Unexpected error verifying password:", err);
+      toast.error("Erro inesperado ao verificar senha");
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -101,18 +134,51 @@ export function OrcamentoActions({ id, status, onDuplicate, onDelete, onFinalize
     setPasswordError(false);
   };
 
-  const handleConfirmDelete = () => {
-    // Simulação: senha correta é "1234"
-    if (password === "1234") {
-      toast.success("Orçamento excluído com sucesso!");
-      onDelete?.(id);
-      setShowDeleteDialog(false);
-      setPassword("");
-      setPasswordError(false);
-    } else {
-      setPasswordError(true);
+  const handleConfirmDelete = async () => {
+    try {
+      setIsVerifying(true);
+      // Verify password against database
+      const { data, error: authError } = await supabase
+        .from('usuarios')
+        .select('id')
+        .eq('senha', password)
+        .limit(1);
+
+      if (authError) {
+        console.error("Database error during password check:", authError);
+        toast.error("Erro ao acessar banco de dados. Verifique o Supabase.");
+        return;
+      }
+
+      if (data && data.length > 0) {
+        // Call onDelete which usually triggers the hook's delete function
+        onDelete?.(id);
+        setShowDeleteDialog(false);
+        setPassword("");
+        setPasswordError(false);
+      } else {
+        // Diagnostic: Check if any users exist at all
+        const { count } = await supabase
+          .from('usuarios')
+          .select('*', { count: 'exact', head: true });
+
+        if (count === 0) {
+          toast.error("Nenhum usuário cadastrado. Rode o script SQL no Supabase.");
+        } else {
+          setPasswordError(true);
+          toast.error("Senha incorreta");
+        }
+      }
+    } catch (err: any) {
+      console.error("Unexpected error verifying password:", err);
+      toast.error("Erro inesperado ao verificar senha");
+    } finally {
+      setIsVerifying(false);
     }
   };
+
+
+
 
   const handleDialogClose = () => {
     setShowDeleteDialog(false);
@@ -248,6 +314,7 @@ export function OrcamentoActions({ id, status, onDuplicate, onDelete, onFinalize
                   setPassword(e.target.value);
                   setPasswordError(false);
                 }}
+                disabled={isVerifying}
                 className={passwordError ? "border-destructive" : ""}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
@@ -260,11 +327,13 @@ export function OrcamentoActions({ id, status, onDuplicate, onDelete, onFinalize
               )}
             </div>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={handleFinalizeDialogClose}>Cancelar</AlertDialogCancel>
+              <AlertDialogCancel onClick={handleFinalizeDialogClose} disabled={isVerifying}>Cancelar</AlertDialogCancel>
               <AlertDialogAction
                 onClick={handleConfirmFinalize}
                 className="bg-success text-success-foreground hover:bg-success/90"
+                disabled={isVerifying}
               >
+                {isVerifying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Finalizar
               </AlertDialogAction>
             </AlertDialogFooter>
@@ -291,18 +360,26 @@ export function OrcamentoActions({ id, status, onDuplicate, onDelete, onFinalize
                   setPassword(e.target.value);
                   setPasswordError(false);
                 }}
+                disabled={isVerifying}
                 className={passwordError ? "border-destructive" : ""}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleConfirmDelete();
+                  }
+                }}
               />
               {passwordError && (
                 <p className="text-sm text-destructive mt-1">Senha incorreta</p>
               )}
             </div>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={handleDialogClose}>Cancelar</AlertDialogCancel>
+              <AlertDialogCancel onClick={handleDialogClose} disabled={isVerifying}>Cancelar</AlertDialogCancel>
               <AlertDialogAction
                 onClick={handleConfirmDelete}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={isVerifying}
               >
+                {isVerifying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Excluir
               </AlertDialogAction>
             </AlertDialogFooter>

@@ -1,12 +1,13 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { Search, Plus, Minus, ArrowRight, ArrowLeft, Save, Database, MapPin } from "lucide-react";
+import { Search, Plus, Minus, ArrowRight, ArrowLeft, Save, Database, MapPin, Loader2, Globe } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { ufs } from "@/data/regioes";
 import { cn } from "@/lib/utils";
+import { searchPNCPItems, PNCPItem } from "@/lib/pncp";
 
 interface ItemDisponivel {
   id: string;
@@ -14,6 +15,8 @@ interface ItemDisponivel {
   unidade: string;
   fonte: string;
   preco: number;
+  orgao?: string;
+  data?: string;
 }
 
 interface ItemSelecionado extends ItemDisponivel {
@@ -25,40 +28,54 @@ const fontes = [
   { id: "bps", nome: "BPS", descricao: "Banco de Preços em Saúde" },
   { id: "painel", nome: "Painel de Preços", descricao: "Painel de Preços do Governo Federal" },
   { id: "nfe", nome: "NFe", descricao: "Notas Fiscais Eletrônicas" },
+  { id: "catser", nome: "CATSER", descricao: "Catálogo de Serviços" },
+  { id: "sinapi", nome: "SINAPI", descricao: "Sistema Nacional de Pesquisa de Custos e Índices da Construção Civil" },
+  { id: "cmed", nome: "CMED", descricao: "Câmara de Regulação do Mercado de Medicamentos" },
 ];
 
-// Mock items database
-const itensBanco: ItemDisponivel[] = [
-  { id: "1", nome: "Caneta esferográfica azul", unidade: "unidade", fonte: "PNCP", preco: 1.25 },
-  { id: "2", nome: "Caneta esferográfica preta", unidade: "unidade", fonte: "PNCP", preco: 1.30 },
-  { id: "3", nome: "Papel A4 75g 500 folhas", unidade: "resma", fonte: "Painel de Preços", preco: 22.50 },
-  { id: "4", nome: "Papel A4 90g 500 folhas", unidade: "resma", fonte: "PNCP", preco: 28.00 },
-  { id: "5", nome: "Grampeador médio 26/6", unidade: "unidade", fonte: "BPS", preco: 18.90 },
-  { id: "6", nome: "Clips nº 2/0 galvanizado", unidade: "caixa", fonte: "NFe", preco: 3.50 },
-  { id: "7", nome: "Pasta suspensa kraft", unidade: "unidade", fonte: "PNCP", preco: 2.80 },
-  { id: "8", nome: "Envelope ofício branco", unidade: "unidade", fonte: "Painel de Preços", preco: 0.35 },
-  { id: "9", nome: "Calculadora de mesa 12 dígitos", unidade: "unidade", fonte: "PNCP", preco: 45.00 },
-  { id: "10", nome: "Régua 30cm acrílico", unidade: "unidade", fonte: "NFe", preco: 4.20 },
-  { id: "11", nome: "Borracha branca macia", unidade: "unidade", fonte: "BPS", preco: 1.00 },
-  { id: "12", nome: "Lápis preto nº 2", unidade: "unidade", fonte: "PNCP", preco: 0.80 },
-  { id: "13", nome: "Tesoura escolar", unidade: "unidade", fonte: "Painel de Preços", preco: 8.50 },
-  { id: "14", nome: "Cola branca 90g", unidade: "unidade", fonte: "NFe", preco: 5.60 },
-  { id: "15", nome: "Fita adesiva transparente", unidade: "rolo", fonte: "PNCP", preco: 3.90 },
-];
+// Mock items database (Empy as requested)
+const itensBanco: ItemDisponivel[] = [];
 
 export default function BuscarItensManual() {
   const navigate = useNavigate();
   const location = useLocation();
   const nomeOrcamento = location.state?.nomeOrcamento || "Novo Orçamento";
-  
+
   const [searchTerm, setSearchTerm] = useState("");
   const [itensSelecionados, setItensSelecionados] = useState<ItemSelecionado[]>([]);
-  
+  const [itensOnline, setItensOnline] = useState<ItemDisponivel[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+
   // Filtros
-  const [fontesSelecionadas, setFontesSelecionadas] = useState<string[]>(["pncp", "bps", "painel", "nfe"]);
+  const [fontesSelecionadas, setFontesSelecionadas] = useState<string[]>([]);
   const [ufsSelecionadas, setUfsSelecionadas] = useState<string[]>([]);
 
-  // Filtrar itens baseado na busca e fontes selecionadas
+  // Busca Online (Debounced)
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(async () => {
+      if (searchTerm.length >= 3 && fontesSelecionadas.includes("pncp")) {
+        setIsSearching(true);
+        try {
+          const results = await searchPNCPItems(searchTerm);
+          if (results.length === 0) {
+            toast.info("Nenhum item encontrado no PNCP para este termo no ano atual.");
+          }
+          setItensOnline(results as ItemDisponivel[]);
+        } catch (error: any) {
+          console.error(error);
+          toast.error(`Erro ao buscar no portal PNCP: ${error.message}`);
+        } finally {
+          setIsSearching(false);
+        }
+      } else {
+        setItensOnline([]);
+      }
+    }, 800);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchTerm, fontesSelecionadas]);
+
+  // Combinar itens mockados e itens online
   const itensDisponiveis = useMemo(() => {
     if (!searchTerm.trim()) return [];
 
@@ -67,12 +84,16 @@ export default function BuscarItensManual() {
       return fonte?.nome || "";
     });
 
-    return itensBanco.filter((item) => {
+    // Mock local
+    const mockResults = itensBanco.filter((item) => {
       const matchesSearch = item.nome.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesFonte = fontesNomes.includes(item.fonte);
+      const matchesFonte = fontesSelecionadas.length === 0 || fontesNomes.includes(item.fonte);
       return matchesSearch && matchesFonte;
     });
-  }, [searchTerm, fontesSelecionadas]);
+
+    // Mesclar com online (filtrando duplicatas por ID se necessário)
+    return [...itensOnline, ...mockResults];
+  }, [searchTerm, fontesSelecionadas, itensOnline]);
 
   const handleFonteChange = (fonteId: string, checked: boolean) => {
     setFontesSelecionadas((prev) =>
@@ -120,19 +141,27 @@ export default function BuscarItensManual() {
       toast.error("Adicione ao menos um item para continuar.");
       return;
     }
+    // Se nenhuma fonte estiver selecionada, podemos avisar ou considerar todas. 
+    // O usuário disse que escolheria na hora, então obrigar a escolher parece correto.
     if (fontesSelecionadas.length === 0) {
       toast.error("Selecione ao menos uma fonte de pesquisa.");
       return;
     }
     // Navegar para o resultado/relatório
-    navigate("/resultado-busca");
+    navigate("/resultado-busca", {
+      state: {
+        itensSelecionados,
+        nomeOrcamento,
+        fontesSelecionadas // Passando também as fontes para o próximo passo
+      }
+    });
   };
 
   return (
     <MainLayout title="Busca Manual de Itens" subtitle={nomeOrcamento}>
-      <div className="space-y-4">
-        {/* Header com nome do orçamento */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="space-y-6">
+        {/* Header com botão Voltar */}
+        <div className="flex items-center gap-4">
           <Link to="/novo-orcamento">
             <Button variant="ghost" className="gap-2">
               <ArrowLeft className="h-4 w-4" />
@@ -141,59 +170,66 @@ export default function BuscarItensManual() {
           </Link>
         </div>
 
-        {/* Filtros Compactos no Topo */}
-        <div className="rounded-lg border border-border bg-card p-4">
-          <div className="flex flex-wrap items-start gap-6">
-            {/* Fontes - Toggle Buttons */}
-            <div className="flex-1 min-w-[200px]">
-              <div className="flex items-center gap-2 mb-2">
-                <Database className="h-4 w-4 text-primary" />
-                <span className="text-sm font-medium text-foreground">Fontes</span>
+        {/* Filtros em Grid para Melhor Alinhamento */}
+        <div className="grid gap-6 md:grid-cols-2">
+          {/* Seção Fontes */}
+          <div className="rounded-xl border border-border bg-card p-5 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Database className="h-5 w-5 text-primary" />
+                <h3 className="font-semibold text-foreground">Fontes de Pesquisa</h3>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {fontes.map((fonte) => (
-                  <button
-                    key={fonte.id}
-                    onClick={() => handleFonteChange(fonte.id, !fontesSelecionadas.includes(fonte.id))}
-                    className={cn(
-                      "px-3 py-1.5 text-xs font-medium rounded-full transition-colors",
-                      fontesSelecionadas.includes(fonte.id)
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-muted-foreground hover:bg-muted/80"
-                    )}
-                  >
-                    {fonte.nome}
-                  </button>
-                ))}
-              </div>
+              <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                {fontesSelecionadas.length} selecionadas
+              </span>
             </div>
 
-            {/* UFs - Compact Select */}
-            <div className="flex-1 min-w-[200px]">
-              <div className="flex items-center gap-2 mb-2">
-                <MapPin className="h-4 w-4 text-primary" />
-                <span className="text-sm font-medium text-foreground">
-                  Estados ({ufsSelecionadas.length})
-                </span>
+            <div className="flex flex-wrap gap-2">
+              {fontes.map((fonte) => (
+                <button
+                  key={fonte.id}
+                  onClick={() => handleFonteChange(fonte.id, !fontesSelecionadas.includes(fonte.id))}
+                  className={cn(
+                    "px-4 py-2 text-xs font-bold rounded-lg transition-all border-2",
+                    fontesSelecionadas.includes(fonte.id)
+                      ? "bg-primary text-primary-foreground border-primary shadow-md"
+                      : "bg-background text-muted-foreground border-muted hover:border-primary/50 hover:text-primary"
+                  )}
+                >
+                  {fonte.nome}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Seção Estados */}
+          <div className="rounded-xl border border-border bg-card p-5 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-primary" />
+                <h3 className="font-semibold text-foreground">Abrangência Regional</h3>
               </div>
-              <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto">
-                {ufs.map((uf) => (
-                  <button
-                    key={uf}
-                    onClick={() => handleUfChange(uf, !ufsSelecionadas.includes(uf))}
-                    className={cn(
-                      "px-2 py-1 text-xs font-medium rounded transition-colors",
-                      ufsSelecionadas.includes(uf)
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-muted-foreground hover:bg-muted/80"
-                    )}
-                  >
-                    {uf}
-                  </button>
-                ))}
-              </div>
+              <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                {ufsSelecionadas.length} estados
+              </span>
             </div>
 
+            <div className="flex flex-wrap gap-1.5 max-h-[120px] overflow-y-auto pr-2 custom-scrollbar">
+              {ufs.map((uf) => (
+                <button
+                  key={uf}
+                  onClick={() => handleUfChange(uf, !ufsSelecionadas.includes(uf))}
+                  className={cn(
+                    "w-9 h-8 flex items-center justify-center text-xs font-bold rounded transition-all border-2",
+                    ufsSelecionadas.includes(uf)
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-muted/50 text-muted-foreground border-transparent hover:border-primary/30"
+                  )}
+                >
+                  {uf}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -220,13 +256,19 @@ export default function BuscarItensManual() {
             {/* Resultados da busca */}
             {searchTerm.trim() && (
               <div className="rounded-lg border border-border bg-card overflow-hidden">
-                <div className="p-3 border-b border-border bg-muted/50">
+                <div className="p-3 border-b border-border bg-muted/50 flex items-center justify-between">
                   <p className="text-sm font-medium">
                     {itensDisponiveis.length} itens encontrados
                   </p>
+                  {isSearching && (
+                    <div className="flex items-center gap-2 text-xs text-primary animate-pulse">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Buscando no PNCP...
+                    </div>
+                  )}
                 </div>
                 <div className="divide-y divide-border max-h-[400px] overflow-y-auto">
-                  {itensDisponiveis.length === 0 ? (
+                  {itensDisponiveis.length === 0 && !isSearching ? (
                     <div className="p-4 text-center text-muted-foreground">
                       Nenhum item encontrado com os filtros selecionados
                     </div>
@@ -236,15 +278,25 @@ export default function BuscarItensManual() {
                       return (
                         <div
                           key={item.id}
-                          className="flex items-center justify-between p-3 hover:bg-muted/50"
+                          className="flex items-center justify-between p-3 hover:bg-muted/50 transition-colors"
                         >
                           <div className="min-w-0 flex-1">
-                            <p className="font-medium text-sm text-foreground">
-                              {item.nome}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-sm text-foreground truncate">
+                                {item.nome}
+                              </p>
+                              {item.id.startsWith("pncp-") && (
+                                <Globe className="h-3 w-3 text-primary flex-shrink-0" />
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-0.5">
                               {item.unidade} • {item.fonte} • R$ {item.preco.toFixed(2)}
                             </p>
+                            {item.orgao && (
+                              <p className="text-[10px] text-muted-foreground/70 truncate mt-1">
+                                {item.orgao} {item.data && `• ${item.data}`}
+                              </p>
+                            )}
                           </div>
                           <Button
                             size="sm"

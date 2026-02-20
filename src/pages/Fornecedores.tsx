@@ -1,9 +1,14 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Search, Plus, Users, Filter, Building2 } from "lucide-react";
+import { Search, Plus, Users, Filter, Building2, Upload, Loader2, AlertCircle } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { toast } from "sonner";
+import { ufs, regioesPorUF, segmentos } from "@/data/regioes";
+import { supabase } from "@/lib/supabase";
 import {
   Select,
   SelectContent,
@@ -11,6 +16,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -20,10 +33,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { toast } from "sonner";
-import { ufs, regioesPorUF, segmentos } from "@/data/regioes";
+import { Trash2, Edit2 } from "lucide-react";
 
 interface Fornecedor {
   id: string;
@@ -37,63 +47,7 @@ interface Fornecedor {
   segmentos: string[];
 }
 
-const fornecedoresMock: Fornecedor[] = [
-  {
-    id: "1",
-    cnpj: "12.345.678/0001-90",
-    razaoSocial: "Papelaria Central Ltda",
-    cidade: "São Paulo",
-    uf: "SP",
-    regiao: "Grande São Paulo",
-    email: "contato@papelariacentral.com.br",
-    telefone: "(11) 3456-7890",
-    segmentos: ["Material de Escritório"],
-  },
-  {
-    id: "2",
-    cnpj: "98.765.432/0001-10",
-    razaoSocial: "TechSupply Informática",
-    cidade: "Campinas",
-    uf: "SP",
-    regiao: "Campinas",
-    email: "vendas@techsupply.com.br",
-    telefone: "(19) 3333-4444",
-    segmentos: ["Equipamentos de Informática", "Serviços de TI"],
-  },
-  {
-    id: "3",
-    cnpj: "11.222.333/0001-44",
-    razaoSocial: "Móveis Escolares Brasil",
-    cidade: "Belo Horizonte",
-    uf: "MG",
-    regiao: "Grande BH",
-    email: "comercial@moveisbrasil.com.br",
-    telefone: "(31) 2222-1111",
-    segmentos: ["Mobiliário"],
-  },
-  {
-    id: "4",
-    cnpj: "55.666.777/0001-88",
-    razaoSocial: "Distribuidora Limpeza Total",
-    cidade: "Rio de Janeiro",
-    uf: "RJ",
-    regiao: "Metropolitana do Rio",
-    email: "pedidos@limpezatotal.com.br",
-    telefone: "(21) 5555-6666",
-    segmentos: ["Material de Limpeza", "EPIs"],
-  },
-  {
-    id: "5",
-    cnpj: "33.444.555/0001-22",
-    razaoSocial: "Farmácia Atacado Saúde",
-    cidade: "Curitiba",
-    uf: "PR",
-    regiao: "Metropolitana de Curitiba",
-    email: "atacado@farmaciadistribuidora.com.br",
-    telefone: "(41) 7777-8888",
-    segmentos: ["Medicamentos"],
-  },
-];
+const fornecedoresMock: Fornecedor[] = [];
 
 function formatCNPJ(value: string) {
   const numbers = value.replace(/\D/g, "");
@@ -124,12 +78,79 @@ function formatPhone(value: string) {
 }
 
 export default function Fornecedores() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [ufFilter, setUfFilter] = useState("all");
   const [regiaoFilter, setRegiaoFilter] = useState("all");
   const [segmentoFilter, setSegmentoFilter] = useState("all");
-  const [fornecedores, setFornecedores] = useState<Fornecedor[]>(fornecedoresMock);
+  const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [previewData, setPreviewData] = useState<any[]>([]);
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+
+  // Auth check
+  useEffect(() => {
+    async function checkAccess() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          navigate("/");
+          return;
+        }
+
+        const { data: profile } = await supabase
+          .from('usuarios')
+          .select('tipo')
+          .eq('email', user.email)
+          .single();
+
+        if (profile?.tipo === 'super_admin') {
+          setIsSuperAdmin(true);
+          fetchFornecedores();
+        } else {
+          setCheckingAuth(false);
+        }
+      } catch (error) {
+        console.error("Auth check error:", error);
+        navigate("/");
+      } finally {
+        setCheckingAuth(false);
+      }
+    }
+    checkAccess();
+  }, []);
+
+  const fetchFornecedores = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("fornecedores")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Erro ao buscar fornecedores:", error);
+      toast.error("Erro ao carregar fornecedores.");
+    } else {
+      const mappedData: Fornecedor[] = (data || []).map((f: any) => ({
+        id: f.id,
+        cnpj: f.cnpj,
+        razaoSocial: f.razao_social,
+        cidade: f.cidade,
+        uf: f.uf,
+        regiao: f.regiao,
+        email: f.email,
+        telefone: f.telefone,
+        segmentos: f.segmentos || [],
+      }));
+      setFornecedores(mappedData);
+    }
+    setLoading(false);
+  };
 
   // Form state
   const [formData, setFormData] = useState({
@@ -173,7 +194,7 @@ export default function Fornecedores() {
     }));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     // Validations
     if (!validateCNPJ(formData.cnpj)) {
       toast.error("CNPJ inválido. Digite os 14 dígitos.");
@@ -224,15 +245,46 @@ export default function Fornecedores() {
       return;
     }
 
-    // Add new fornecedor
-    const newFornecedor: Fornecedor = {
-      id: String(Date.now()),
-      ...formData,
-    };
+    // Add new fornecedor to Supabase
+    const { data, error } = await supabase
+      .from("fornecedores")
+      .insert([
+        {
+          cnpj: formData.cnpj,
+          razao_social: formData.razaoSocial,
+          cidade: formData.cidade,
+          uf: formData.uf,
+          regiao: formData.regiao,
+          email: formData.email,
+          telefone: formData.telefone,
+          segmentos: formData.segmentos,
+        },
+      ])
+      .select();
 
-    setFornecedores((prev) => [...prev, newFornecedor]);
-    toast.success("Fornecedor cadastrado com sucesso!");
-    setDialogOpen(false);
+    if (error) {
+      console.error("Erro ao salvar fornecedor:", error);
+      toast.error("Erro ao salvar no banco de dados.");
+      return;
+    }
+
+    if (data && data[0]) {
+      const inserted = data[0];
+      const newFornecedor: Fornecedor = {
+        id: inserted.id,
+        cnpj: inserted.cnpj,
+        razaoSocial: inserted.razao_social,
+        cidade: inserted.cidade,
+        uf: inserted.uf,
+        regiao: inserted.regiao,
+        email: inserted.email,
+        telefone: inserted.telefone,
+        segmentos: inserted.segmentos || [],
+      };
+      setFornecedores((prev) => [newFornecedor, ...prev]);
+      toast.success("Fornecedor cadastrado com sucesso!");
+      setDialogOpen(false);
+    }
     setFormData({
       cnpj: "",
       razaoSocial: "",
@@ -245,18 +297,225 @@ export default function Fornecedores() {
     });
   };
 
+  const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    const reader = new FileReader();
+
+    reader.onload = async (e) => {
+      try {
+        const text = e.target?.result as string;
+        const lines = text.split('\n');
+        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+
+        const suppliersToInsert = [];
+
+        for (let i = 1; i < lines.length; i++) {
+          if (!lines[i].trim()) continue;
+
+          const values = lines[i].split(',').map(v => v.trim());
+          const supplier: any = {};
+
+          headers.forEach((header, index) => {
+            if (header === 'cnpj') supplier.cnpj = values[index];
+            if (header === 'razao_social' || header === 'razao social') supplier.razao_social = values[index];
+            if (header === 'cidade') supplier.cidade = values[index];
+            if (header === 'uf') supplier.uf = values[index];
+            if (header === 'regiao') supplier.regiao = values[index];
+            if (header === 'email') supplier.email = values[index];
+            if (header === 'telefone') supplier.telefone = values[index];
+            if (header === 'segmentos') supplier.segmentos = values[index]?.split(';').map(s => s.trim());
+          });
+
+          if (supplier.cnpj && supplier.razao_social) {
+            suppliersToInsert.push(supplier);
+          }
+        }
+
+        if (suppliersToInsert.length === 0) {
+          toast.error("Nenhum fornecedor válido encontrado no CSV.");
+          return;
+        }
+
+        setPreviewData(suppliersToInsert);
+        setPreviewDialogOpen(true);
+      } catch (error) {
+        console.error("CSV Import Error:", error);
+        toast.error("Erro ao importar CSV. Verifique o formato do arquivo.");
+      } finally {
+        setUploading(false);
+        event.target.value = '';
+      }
+    };
+
+    reader.readAsText(file);
+  };
+
+  const handleConfirmImport = async () => {
+    if (previewData.length === 0) return;
+
+    setUploading(true);
+    try {
+      const { error } = await supabase
+        .from("fornecedores")
+        .upsert(previewData, { onConflict: 'cnpj' });
+
+      if (error) throw error;
+
+      toast.success(`${previewData.length} fornecedores importados com sucesso!`);
+      setPreviewDialogOpen(false);
+      setPreviewData([]);
+      fetchFornecedores();
+    } catch (error) {
+      console.error("Bulk Save Error:", error);
+      toast.error("Erro ao salvar fornecedores.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removeItemFromPreview = (index: number) => {
+    setPreviewData(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const editItemInPreview = (index: number) => {
+    const item = previewData[index];
+    setFormData({
+      cnpj: item.cnpj || "",
+      razaoSocial: item.razao_social || "",
+      cidade: item.cidade || "",
+      uf: item.uf || "",
+      regiao: item.regiao || "",
+      email: item.email || "",
+      telefone: item.telefone || "",
+      segmentos: item.segmentos || [],
+    });
+    setEditingIndex(index);
+    setPreviewDialogOpen(false);
+    setDialogOpen(true);
+  };
+
+  // Modify handleSubmit to handle preview editing
+  const originalHandleSubmit = handleSubmit;
+  const upgradedHandleSubmit = async () => {
+    if (editingIndex !== null) {
+      // Re-validate just in case
+      if (!validateCNPJ(formData.cnpj)) {
+        toast.error("CNPJ inválido.");
+        return;
+      }
+
+      const updatedItem = {
+        cnpj: formData.cnpj,
+        razao_social: formData.razaoSocial,
+        cidade: formData.cidade,
+        uf: formData.uf,
+        regiao: formData.regiao,
+        email: formData.email,
+        telefone: formData.telefone,
+        segmentos: formData.segmentos,
+      };
+
+      const newData = [...previewData];
+      newData[editingIndex] = updatedItem;
+      setPreviewData(newData);
+      setEditingIndex(null);
+      setDialogOpen(false);
+      setPreviewDialogOpen(true);
+
+      // Reset form
+      setFormData({
+        cnpj: "",
+        razaoSocial: "",
+        cidade: "",
+        uf: "",
+        regiao: "",
+        email: "",
+        telefone: "",
+        segmentos: [],
+      });
+      return;
+    }
+
+    await originalHandleSubmit();
+  };
+
+  if (checkingAuth) {
+    return (
+      <MainLayout title="Fornecedores" subtitle="Carregando...">
+        <div className="flex h-[400px] items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (!isSuperAdmin) {
+    return (
+      <MainLayout title="Fornecedores" subtitle="Acesso restrito">
+        <div className="flex flex-col items-center justify-center h-[400px] text-center space-y-4">
+          <AlertCircle className="h-12 w-12 text-destructive" />
+          <h2 className="text-xl font-bold">Acesso Negado</h2>
+          <p className="text-muted-foreground max-w-md">
+            Apenas administradores do sistema (Super Admin) têm permissão para gerenciar a base global de fornecedores.
+          </p>
+          <Button onClick={() => navigate("/")}>Voltar para o Dashboard</Button>
+        </div>
+      </MainLayout>
+    );
+  }
+
   return (
     <MainLayout title="Fornecedores" subtitle="Gerencie os fornecedores cadastrados">
       <div className="space-y-6">
         {/* Actions */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2">
-                <Plus className="h-4 w-4" />
-                Cadastrar Fornecedor
-              </Button>
-            </DialogTrigger>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative">
+                <input
+                  type="file"
+                  id="csv-upload"
+                  className="hidden"
+                  accept=".csv"
+                  onChange={handleCSVUpload}
+                  disabled={uploading}
+                />
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  onClick={() => document.getElementById('csv-upload')?.click()}
+                  disabled={uploading}
+                >
+                  {uploading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Upload className="h-4 w-4" />
+                  )}
+                  Importar CSV
+                </Button>
+              </div>
+              <DialogTrigger asChild>
+                <Button className="gap-2" onClick={() => {
+                  setEditingIndex(null);
+                  setFormData({
+                    cnpj: "",
+                    razaoSocial: "",
+                    cidade: "",
+                    uf: "",
+                    regiao: "",
+                    email: "",
+                    telefone: "",
+                    segmentos: [],
+                  });
+                }}>
+                  <Plus className="h-4 w-4" />
+                  Cadastrar Fornecedor
+                </Button>
+              </DialogTrigger>
+            </div>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Cadastrar Novo Fornecedor</DialogTitle>
@@ -415,7 +674,86 @@ export default function Fornecedores() {
                 <Button variant="outline" onClick={() => setDialogOpen(false)}>
                   Cancelar
                 </Button>
-                <Button onClick={handleSubmit}>Cadastrar</Button>
+                <Button onClick={upgradedHandleSubmit}>
+                  {editingIndex !== null ? "Salvar Alteração" : "Cadastrar"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Import Preview Dialog */}
+          <Dialog open={previewDialogOpen} onOpenChange={setPreviewDialogOpen}>
+            <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+              <DialogHeader>
+                <DialogTitle>Revisar Importação</DialogTitle>
+                <DialogDescription>
+                  Verifique os dados extraídos do CSV. Você pode editar ou remover itens antes de confirmar.
+                  <br />
+                  <strong>{previewData.length} fornecedores</strong> prontos para inclusão.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="flex-1 overflow-auto my-4 border rounded-md">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>CNPJ</TableHead>
+                      <TableHead>Razão Social</TableHead>
+                      <TableHead>Cidade/UF</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {previewData.map((item, index) => (
+                      <TableRow key={index}>
+                        <TableCell className="font-medium whitespace-nowrap">{item.cnpj}</TableCell>
+                        <TableCell className="max-w-[200px] truncate">{item.razao_social}</TableCell>
+                        <TableCell>{item.cidade}/{item.uf}</TableCell>
+                        <TableCell className="max-w-[150px] truncate">{item.email}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-primary"
+                              onClick={() => editItemInPreview(index)}
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive"
+                              onClick={() => removeItemFromPreview(index)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              <DialogFooter className="gap-2">
+                <Button variant="outline" onClick={() => {
+                  setPreviewDialogOpen(false);
+                  setPreviewData([]);
+                }}>
+                  Cancelar
+                </Button>
+                <Button onClick={handleConfirmImport} disabled={uploading || previewData.length === 0}>
+                  {uploading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Salvando...
+                    </>
+                  ) : (
+                    `Confirmar Importação (${previewData.length})`
+                  )}
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>

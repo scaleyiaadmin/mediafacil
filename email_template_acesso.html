@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seu acesso ao Média Fácil</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #fafaf8;
+            color: #26211f;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e5e5e0;
+        }
+
+        .header {
+            background-color: #d14d17;
+            /* Laranja institucional */
+            padding: 40px 20px;
+            text-align: center;
+            color: #ffffff;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 32px;
+            font-weight: 700;
+            letter-spacing: -1px;
+        }
+
+        .header p {
+            margin: 8px 0 0;
+            opacity: 0.9;
+            font-size: 16px;
+        }
+
+        .content {
+            padding: 40px 35px;
+        }
+
+        .greeting {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            color: #26211f;
+        }
+
+        .description {
+            line-height: 1.6;
+            margin-bottom: 25px;
+            color: #5b544e;
+            font-size: 16px;
+        }
+
+        .credentials-box {
+            background-color: #fffaf8;
+            border: 1px solid #fbd9c8;
+            border-radius: 10px;
+            padding: 25px;
+            margin: 30px 0;
+        }
+
+        .credential-item {
+            margin-bottom: 15px;
+        }
+
+        .credential-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #d14d17;
+            /* Laranja institucional */
+            font-weight: 700;
+            display: block;
+            margin-bottom: 6px;
+        }
+
+        .value {
+            font-size: 18px;
+            color: #26211f;
+            font-weight: 600;
+            word-break: break-all;
+            font-family: 'Courier New', Courier, monospace;
+            background: #ffffff;
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid #f1f1ee;
+        }
+
+        .button-container {
+            text-align: center;
+            margin-top: 35px;
+        }
+
+        .button {
+            background-color: #d14d17;
+            /* Laranja institucional */
+            color: #ffffff !important;
+            padding: 18px 36px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 700;
+            display: inline-block;
+            font-size: 16px;
+            box-shadow: 0 4px 12px rgba(209, 77, 23, 0.2);
+        }
+
+        .footer {
+            background-color: #f7f7f3;
+            padding: 25px;
+            text-align: center;
+            font-size: 13px;
+            color: #8c857e;
+            border-top: 1px solid #e5e5e0;
+        }
+
+        .footer p {
+            margin: 5px 0;
+        }
+
+        @media only screen and (max-width: 600px) {
+            .container {
+                margin: 0;
+                width: 100%;
+                border-radius: 0;
+            }
+
+            .content {
+                padding: 30px 20px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <!-- LOGO: Substitua a URL abaixo pela URL absoluta da sua logo hospedada -->
+            <img src="https://www.mediafacil.com.br/wp-content/uploads/2023/10/logo-media-facil-branco.png"
+                alt="Média Fácil" style="max-height: 50px; margin-bottom: 20px;">
+            <h1>Média Fácil</h1>
+            <p>Plataforma de Gestão de Orçamentos</p>
+        </div>
+        <div class="content">
+            <div class="greeting">Olá, {{nome}}!</div>
+            <div class="description">
+                Sua conta foi criada no sistema <strong>Média Fácil</strong> pela prefeitura de
+                <strong>{{prefeitura}}</strong>. Utilize as credenciais abaixo para realizar seu primeiro login:
+            </div>
+
+            <div class="credentials-box">
+                <div class="credential-item">
+                    <span class="label">E-mail de Login</span>
+                    <span class="value">{{ $json.body.email }}</span>
+                </div>
+                <div class="credential-item" style="margin-top: 20px;">
+                    <span class="label">Senha Temporária</span>
+                    <span class="value">{{ $json.body.senha }}</span>
+                </div>
+            </div>
+
+            <div class="description" style="font-size: 14px; text-align: center; font-style: italic;">
+                Por segurança, recomendamos que altere sua senha após o primeiro acesso.
+            </div>
+
+            <div class="button-container">
+                <a href="https://mediafacil.gov.br" class="button">Acessar Minha Conta</a>
+            </div>
+        </div>
+        <div class="footer">
+            <p>Este é um e-mail automático. Por favor, não responda.</p>
+            <p>&copy; 2026 Média Fácil - Inteligência em Compras Públicas</p>
+        </div>
+    </div>
+</body>
+
+</html>
