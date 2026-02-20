@@ -259,23 +259,23 @@ export default function RelatorioFinal() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="gap-2 px-4 h-9 border-slate-200" onClick={() => handleOpenSaveDialog("draft")} disabled={isSaving}>
+            <Button variant="outline" size="sm" className="gap-2" onClick={() => handleOpenSaveDialog("draft")} disabled={isSaving}>
               <FileEdit className="h-4 w-4" />
               Salvar Rascunho
             </Button>
 
             <Separator orientation="vertical" className="h-6" />
 
-            <Button variant="ghost" size="sm" className="gap-2 text-slate-500" onClick={() => window.print()}>
+            <Button variant="ghost" size="sm" className="gap-2" onClick={() => window.print()}>
               <Printer className="h-4 w-4" />
               Imprimir
             </Button>
-            <Button variant="ghost" size="sm" className="gap-2 text-slate-500" onClick={handleExportPDF}>
+            <Button variant="ghost" size="sm" className="gap-2" onClick={handleExportPDF}>
               <Download className="h-4 w-4" />
               PDF
             </Button>
 
-            <Button size="sm" className="gap-2 ml-2 bg-[#D84B16] hover:bg-[#BF4213] text-white font-bold h-9 px-5" onClick={() => handleOpenSaveDialog(fornecedoresNomes.length > 0 ? "waiting_suppliers" : "completed")} disabled={isSaving}>
+            <Button size="sm" className="gap-2 ml-2" onClick={() => handleOpenSaveDialog(fornecedoresNomes.length > 0 ? "waiting_suppliers" : "completed")} disabled={isSaving}>
               <Save className="h-4 w-4" />
               {fornecedoresNomes.length > 0 ? "Finalizar e Enviar" : "Finalizar Orçamento"}
             </Button>
@@ -283,64 +283,122 @@ export default function RelatorioFinal() {
         </div>
 
         {/* Relatório Container Ref para PDF */}
-        <div ref={reportRef} className="rounded-xl border border-border bg-white text-black p-12 print:border-none print:p-0 shadow-xl min-h-[1100px]">
-          {/* Cabeçalho Metodológico */}
-          <div className="mb-12 text-justify text-[13px] leading-relaxed text-slate-700 space-y-5 max-w-3xl">
-            <p>
-              Os valores obtidos, tanto das bases referenciais quanto das cotações recebidas, foram analisados de forma comparativa, com apuração de média e mediana dos preços considerados válidos, com a finalidade de subsidiar a adequada formação do preço de referência, observando-se os princípios da razoabilidade, economicidade e eficiência.
-            </p>
-            <p>
-              A presente pesquisa de preços integra o processo administrativo e tem por finalidade subsidiar a tomada de decisão da Administração, não se caracterizando como proposta comercial.
+        <div ref={reportRef} className="rounded-lg border border-border bg-white text-black p-8 print:border-none print:p-0 shadow-lg">
+          {/* Cabeçalho */}
+          <div className="text-center mb-8">
+            <h1 className="text-2xl font-bold mb-2">
+              Relatório de Pesquisa de Preços
+            </h1>
+            <p className="text-gray-600">
+              Sistema Média Fácil - Captação de Orçamentos
             </p>
           </div>
 
-          {/* Seção de Itens Pesquisados */}
-          <div className="space-y-12">
-            <h2 className="text-xl font-black text-slate-900 border-b-2 border-slate-900 pb-2 inline-block mb-8 uppercase tracking-tight">
-              Itens Pesquisados
-            </h2>
+          {/* Identificação */}
+          <div className="grid gap-4 sm:grid-cols-3 mb-8 bg-gray-50 p-4 rounded-lg border border-gray-200">
+            <div className="flex items-start gap-3">
+              <Building2 className="h-5 w-5 text-gray-700 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs text-gray-500 uppercase font-semibold">Entidade Solicitante</p>
+                <p className="font-medium">{relatorioData.entidade}</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <User className="h-5 w-5 text-gray-700 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs text-gray-500 uppercase font-semibold">Responsável</p>
+                <p className="font-medium">{relatorioData.responsavel}</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <Calendar className="h-5 w-5 text-gray-700 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs text-gray-500 uppercase font-semibold">Data do Relatório</p>
+                <p className="font-medium">{relatorioData.dataRelatorio}</p>
+              </div>
+            </div>
+          </div>
 
-            <div className="space-y-12">
+          <Separator className="my-6 bg-gray-200" />
+
+          {/* Metodologia */}
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-3">
+              <FileText className="h-5 w-5 text-gray-700" />
+              <h2 className="text-lg font-semibold">Metodologia de Pesquisa de Preços</h2>
+            </div>
+            <div className="text-sm text-gray-600 leading-relaxed bg-gray-50 rounded-lg p-4 space-y-3 border border-gray-100 text-justify">
+              <p>
+                A presente pesquisa de preços foi realizada por meio de consulta às bases públicas e referenciais que apresentaram resultados válidos para o objeto pesquisado, disponíveis no sistema, incluindo, conforme aplicável, {formatarBasesConsultadas(relatorioData.basesComResultados)} e demais tabelas habilitadas.
+              </p>
+              <p>
+                Foram considerados exclusivamente os registros compatíveis com o objeto da contratação, observando-se a similaridade do item, a atualidade das informações e a abrangência geográfica definida pelo usuário, contemplando o período dos últimos 12 (doze) meses, em conformidade com as disposições da Lei nº 14.133/2021.
+              </p>
+              {relatorioData.fornecedoresSolicitados.length > 0 && (
+                <p>
+                  De forma complementar, quando aplicável, procedeu-se à solicitação de orçamentos junto a fornecedores do ramo de atividade correspondente, selecionados com base em critérios objetivos previamente estabelecidos no sistema. As solicitações foram encaminhadas aos seguintes fornecedores: <strong>{relatorioData.fornecedoresSolicitados.join(", ")}</strong>.
+                  {relatorioData.fornecedoresResponderam.length > 0 && (
+                    <> Dentre estes, apresentaram resposta à solicitação os fornecedores: {relatorioData.fornecedoresResponderam.join(", ")}.</>
+                  )}
+                </p>
+              )}
+              <p>
+                Os valores obtidos, tanto das bases referenciais quanto das cotações recebidas, foram analisados de forma comparativa, com apuração de média e mediana dos preços considerados válidos, com a finalidade de subsidiar a adequada formação do preço de referência, observando-se os princípios da razoabilidade, economicidade e eficiência.
+              </p>
+            </div>
+          </div>
+
+          <Separator className="my-6 bg-gray-200" />
+
+          {/* Tabela de itens */}
+          <div>
+            <h2 className="text-lg font-semibold mb-4">Itens Pesquisados</h2>
+
+            <div className="space-y-6">
               {relatorioData.itens.map((item) => (
-                <div key={item.id} className="break-inside-avoid border-b border-slate-100 pb-8 last:border-0 last:pb-0">
-                  {/* Item Header */}
-                  <div className="flex justify-between items-start mb-6">
-                    <div>
-                      <h3 className="text-xl font-black text-slate-900 leading-tight uppercase tracking-tight">{item.nome}</h3>
-                      <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mt-1">
-                        {item.quantidade} {item.unidade}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Média</p>
-                      <p className="text-2xl font-black text-[#D84B16] tabular-nums">
-                        R$ {Number(item.media).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </p>
+                <div key={item.id} className="rounded-lg border border-gray-300 overflow-hidden break-inside-avoid">
+                  {/* Header do item */}
+                  <div className="bg-gray-100 px-4 py-3 border-b border-gray-300">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-bold text-gray-900">{item.nome}</p>
+                        <p className="text-sm text-gray-600">
+                          {item.quantidade} {item.unidade}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-gray-500 uppercase">Média Unitária</p>
+                        <p className="font-bold text-gray-900 text-lg">
+                          R$ {Number(item.media).toFixed(2)}
+                        </p>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Fontes de Preço */}
-                  <div className="space-y-0.5">
+                  {/* Preços por fonte */}
+                  <div className="divide-y divide-gray-200 bg-white">
                     {item.precos.map((preco, index) => (
-                      <div key={index} className="flex justify-between py-2 text-sm">
-                        <span className="font-bold text-slate-400 uppercase tracking-tight">{preco.fonte}</span>
-                        <span className="font-black text-slate-800 tabular-nums">
-                          R$ {Number(preco.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </span>
+                      <div key={index} className="flex items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                        <span className="font-medium text-gray-600">{preco.fonte}</span>
+                        <span className="font-semibold text-gray-800">R$ {Number(preco.valor).toFixed(2)}</span>
                       </div>
                     ))}
                     {item.precos.length === 0 && (
-                      <p className="py-4 text-sm italic text-slate-300">Nenhum preço de referência encontrado nas bases consultadas.</p>
+                      <div className="px-4 py-3 text-sm text-gray-500 italic">
+                        Nenhum preço encontrado nas bases consultadas.
+                      </div>
                     )}
                   </div>
 
-                  {/* Footer do Item com Média e Mediana */}
-                  <div className="flex justify-between items-center mt-6 pt-4 border-t border-slate-50 text-[13px] font-black uppercase tracking-tight text-slate-800">
+                  {/* Média e mediana */}
+                  <div className="bg-gray-50 px-4 py-3 flex items-center justify-between text-sm border-t border-gray-200">
                     <div>
-                      Média: <span className="text-[#D84B16]">R$ {Number(item.media).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                      <span className="text-gray-600">Média: </span>
+                      <span className="font-bold text-gray-900">R$ {Number(item.media).toFixed(2)}</span>
                     </div>
-                    <div className="text-slate-400">
-                      Mediana: <span className="text-slate-800">R$ {Number(item.mediana).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    <div>
+                      <span className="text-gray-600">Mediana: </span>
+                      <span className="font-bold text-gray-900">R$ {Number(item.mediana).toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
@@ -348,44 +406,41 @@ export default function RelatorioFinal() {
             </div>
           </div>
 
-          {/* Rodapé do Documento */}
-          <div className="mt-24 pt-10 border-t border-slate-100 text-center space-y-2">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
-              Documento gerado pelo Sistema Média Fácil
-            </p>
-            <p className="text-[10px] font-bold text-slate-300">
-              {new Date().toLocaleDateString('pt-BR')}
-            </p>
+          <Separator className="my-6 bg-gray-200" />
+
+          {/* Rodapé do relatório */}
+          <div className="text-center text-xs text-gray-400 mt-12 pb-4">
+            <p>Documento gerado digitalmente pelo Sistema Média Fácil - Integridade verificável</p>
+            <p className="mt-1">{relatorioData.dataRelatorio} • {relatorioData.entidade}</p>
           </div>
         </div>
       </div>
 
       <Dialog open={isNameDialogOpen} onOpenChange={setIsNameDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>Finalizar Orçamento</DialogTitle>
+            <DialogTitle>Nome do Orçamento</DialogTitle>
             <DialogDescription>
-              Dê um nome para este orçamento para salvá-lo em sua lista.
+              Informe um nome que identifique claramente o contexto deste orçamento.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <Label htmlFor="orcamento-nome" className="text-xs font-bold uppercase text-slate-500 mb-2 block">
-              Nome do Orçamento
-            </Label>
-            <Input
-              id="orcamento-nome"
-              value={orcamentoNome}
-              onChange={(e) => setOrcamentoNome(e.target.value)}
-              placeholder="Ex: Materiais de Escritório 2026"
-              className="h-11"
-            />
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="name">Nome do Orçamento</Label>
+              <Input
+                id="name"
+                value={orcamentoNome}
+                onChange={(e) => setOrcamentoNome(e.target.value)}
+                placeholder="Ex: Equipamentos de TI - Secretaria X"
+              />
+            </div>
           </div>
-          <DialogFooter className="sm:justify-end gap-2">
-            <Button variant="ghost" onClick={() => setIsNameDialogOpen(false)} className="font-bold">
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsNameDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleConfirmSave} disabled={isSaving} className="bg-[#D84B16] hover:bg-[#BF4213] text-white font-bold h-10 px-6">
-              {isSaving ? "Salvando..." : "Salvar e Finalizar"}
+            <Button onClick={handleConfirmSave} disabled={isSaving}>
+              {isSaving ? "Salvando..." : "Confirmar e Salvar"}
             </Button>
           </DialogFooter>
         </DialogContent>
