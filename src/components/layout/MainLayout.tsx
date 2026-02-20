@@ -9,19 +9,20 @@ interface MainLayoutProps {
   children: ReactNode;
   title: string;
   subtitle?: string;
+  hideSidebar?: boolean;
 }
 
-export function MainLayout({ children, title, subtitle }: MainLayoutProps) {
+export function MainLayout({ children, title, subtitle, hideSidebar }: MainLayoutProps) {
   const { collapsed } = useSidebarContext();
 
   return (
     <div className="min-h-screen bg-background">
       <SupportModeBanner />
-      <Sidebar />
+      {!hideSidebar && <Sidebar />}
       <div
         className={cn(
           "transition-all duration-300",
-          collapsed ? "pl-16" : "pl-64"
+          hideSidebar ? "pl-0" : (collapsed ? "pl-16" : "pl-64")
         )}
       >
         <Header title={title} subtitle={subtitle} />
