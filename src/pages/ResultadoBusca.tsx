@@ -34,9 +34,10 @@ export default function ResultadoBusca() {
   // Filters State
   const [filters, setFilters] = useState({
     includePNCP: true,
-    includeBPS: true, // Chamaremos de Saúde/CMED na UI
+    includeBPS: true,
+    includeCMED: true,
     includeSINAPI: true,
-    includeCATSER: true,
+    includeNFe: true,
     uf: "all"
   });
 
@@ -124,7 +125,7 @@ export default function ResultadoBusca() {
                   onCheckedChange={(c) => setFilters(prev => ({ ...prev, includeBPS: !!c }))}
                 />
                 <Label htmlFor="bps" className="font-normal cursor-pointer flex items-center gap-2">
-                  CMED (Saúde)
+                  BPS / CMED
                   <span className="w-2 h-2 rounded-full bg-red-500" />
                 </Label>
               </div>
@@ -135,19 +136,19 @@ export default function ResultadoBusca() {
                   onCheckedChange={(c) => setFilters(prev => ({ ...prev, includeSINAPI: !!c }))}
                 />
                 <Label htmlFor="sinapi" className="font-normal cursor-pointer flex items-center gap-2">
-                  SINAPI (Obras)
+                  SINAPI
                   <span className="w-2 h-2 rounded-full bg-green-500" />
                 </Label>
               </div>
               <div className="flex items-center space-x-2">
                 <Checkbox
-                  id="catser"
-                  checked={filters.includeCATSER}
-                  onCheckedChange={(c) => setFilters(prev => ({ ...prev, includeCATSER: !!c }))}
+                  id="nfe"
+                  checked={filters.includeNFe}
+                  onCheckedChange={(c) => setFilters(prev => ({ ...prev, includeNFe: !!c }))}
                 />
-                <Label htmlFor="catser" className="font-normal cursor-pointer flex items-center gap-2">
-                  CATSER (Serviços)
-                  <span className="w-2 h-2 rounded-full bg-purple-500" />
+                <Label htmlFor="nfe" className="font-normal cursor-pointer flex items-center gap-2">
+                  BANCO DE NFe
+                  <span className="w-2 h-2 rounded-full bg-zinc-500" />
                 </Label>
               </div>
             </div>
@@ -279,12 +280,15 @@ export default function ResultadoBusca() {
                       if (encontrado.fonte.includes("CMED") || encontrado.fonte.includes("BPS")) {
                         badgeColor = "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100";
                         badgeDot = "bg-red-500";
-                      } else if (encontrado.fonte.includes("SINAPI")) {
+                      } else if (encontrado.fonte.includes("SINAPI") || encontrado.fonte.includes("SETOP")) {
                         badgeColor = "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100";
                         badgeDot = "bg-green-500";
-                      } else if (encontrado.fonte.includes("CATSER")) {
+                      } else if (encontrado.fonte.includes("CATSER") || encontrado.fonte.includes("CEASA")) {
                         badgeColor = "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-100";
                         badgeDot = "bg-purple-500";
+                      } else if (encontrado.fonte.includes("NFe")) {
+                        badgeColor = "bg-zinc-100 text-zinc-800 dark:bg-zinc-900 dark:text-zinc-100";
+                        badgeDot = "bg-zinc-500";
                       }
 
                       return (

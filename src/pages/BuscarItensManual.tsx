@@ -27,11 +27,11 @@ interface ItemSelecionado extends ItemDisponivel {
 const fontes = [
   { id: "pncp", nome: "PNCP", descricao: "Portal Nacional de Contratações Públicas" },
   { id: "bps", nome: "BPS", descricao: "Banco de Preços em Saúde" },
-  { id: "painel", nome: "Painel de Preços", descricao: "Painel de Preços do Governo Federal" },
-  { id: "nfe", nome: "NFe", descricao: "Notas Fiscais Eletrônicas" },
-  { id: "catser", nome: "CATSER", descricao: "Catálogo de Serviços" },
-  { id: "sinapi", nome: "SINAPI", descricao: "Sistema Nacional de Pesquisa de Custos e Índices da Construção Civil" },
   { id: "cmed", nome: "CMED", descricao: "Câmara de Regulação do Mercado de Medicamentos" },
+  { id: "sinapi", nome: "SINAPI", descricao: "Construção Civil" },
+  { id: "setop", nome: "SETOP", descricao: "Obras Públicas", emBreve: true },
+  { id: "ceasa", nome: "CEASA", descricao: "Hortifruti", emBreve: true },
+  { id: "nfe", nome: "BANCO DE NFe", descricao: "Notas Fiscais Eletrônicas" },
 ];
 
 // Mock items database (Empy as requested)
@@ -211,18 +211,26 @@ export default function BuscarItensManual() {
 
             <div className="flex flex-wrap gap-2">
               {fontes.map((fonte) => (
-                <button
-                  key={fonte.id}
-                  onClick={() => handleFonteChange(fonte.id, !fontesSelecionadas.includes(fonte.id))}
-                  className={cn(
-                    "px-4 py-2 text-xs font-bold rounded-lg transition-all border-2",
-                    fontesSelecionadas.includes(fonte.id)
-                      ? "bg-primary text-primary-foreground border-primary shadow-md"
-                      : "bg-background text-muted-foreground border-muted hover:border-primary/50 hover:text-primary"
+                <div key={fonte.id} className="relative">
+                  <button
+                    disabled={fonte.emBreve}
+                    onClick={() => handleFonteChange(fonte.id, !fontesSelecionadas.includes(fonte.id))}
+                    className={cn(
+                      "px-4 py-2 text-xs font-bold rounded-lg transition-all border-2 w-full",
+                      fontesSelecionadas.includes(fonte.id)
+                        ? "bg-primary text-primary-foreground border-primary shadow-md"
+                        : "bg-background text-muted-foreground border-muted hover:border-primary/50 hover:text-primary",
+                      fonte.emBreve && "opacity-60 cursor-not-allowed grayscale"
+                    )}
+                  >
+                    {fonte.nome}
+                  </button>
+                  {fonte.emBreve && (
+                    <span className="absolute -top-2 -right-1 bg-amber-500 text-[8px] text-white px-1 rounded font-bold uppercase tracking-tighter shadow-sm whitespace-nowrap">
+                      Em breve
+                    </span>
                   )}
-                >
-                  {fonte.nome}
-                </button>
+                </div>
               ))}
             </div>
           </div>
