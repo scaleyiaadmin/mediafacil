@@ -39,7 +39,7 @@ const defaultRelatorioData = {
   dataRelatorio: new Date().toLocaleDateString('pt-BR'),
   fornecedoresSolicitados: [] as string[],
   fornecedoresResponderam: [] as string[],
-  basesComResultados: ["PNCP", "BPS", "Painel de Preços", "NFe", "CATSER", "SINAPI", "CMED"],
+  basesComResultados: ["PNCP", "BPS", "CMED", "SINAPI", "SETOP", "CEASA", "BANCO DE NFe"],
   itens: [] as ItemRelatorio[],
 };
 
@@ -131,7 +131,7 @@ export default function RelatorioFinal() {
     fornecedoresSolicitados: fornecedoresNomes,
     itens: state?.itens ? state.itens.map(item => {
       // Re-cálculo caso não venha pronto
-      const valores = item.itensEncontrados?.map((i: any) => i.valor) || [];
+      const valores = item.itensEncontrados?.map((i: any) => i.preco ?? i.valor ?? 0) || [];
       const soma = valores.reduce((a: number, b: number) => a + b, 0);
       const media = valores.length > 0 ? soma / valores.length : (item.media || 0);
 
@@ -148,7 +148,7 @@ export default function RelatorioFinal() {
         quantidade: item.quantidade || 1,
         precos: item.itensEncontrados?.map((i: any) => ({
           fonte: i.fonte || "Desconhecido",
-          valor: i.valor
+          valor: i.preco ?? i.valor ?? 0
         })) || [],
         media,
         mediana

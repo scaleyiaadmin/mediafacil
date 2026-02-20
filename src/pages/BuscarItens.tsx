@@ -3,7 +3,7 @@ import { Search, Plus, Check, ShoppingCart, ArrowRight, Loader2 } from "lucide-r
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Link } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { searchReferences } from "@/lib/referencias";
 import { PNCPItem as Item } from "@/lib/pncp";
 
@@ -12,6 +12,10 @@ interface ItemSelecionado extends Item {
 }
 
 export default function BuscarItens() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const nomeOrcamento = location.state?.nomeOrcamento || "Novo Orçamento";
+
   const [busca, setBusca] = useState("");
   const [itensSelecionados, setItensSelecionados] = useState<ItemSelecionado[]>([]);
   const [quantidades, setQuantidades] = useState<Record<string, number>>({});
@@ -171,12 +175,18 @@ export default function BuscarItens() {
                 </div>
               </div>
 
-              <Link to="/configurar-busca">
-                <Button className="gap-2">
-                  Continuar
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
+              <Button
+                className="gap-2"
+                onClick={() => navigate("/resultado-busca", {
+                  state: {
+                    itensSelecionados,
+                    nomeOrcamento
+                  }
+                })}
+              >
+                Continuar
+                <ArrowRight className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         )}
