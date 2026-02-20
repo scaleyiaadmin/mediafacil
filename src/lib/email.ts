@@ -59,8 +59,9 @@ export function generateBudgetRequestHtml(params: {
     entidade: string;
     itens: any[];
     orcamentoNome?: string;
+    linkProposta?: string;
 }) {
-    const { fornecedorNome, responsavel, entidade, itens, orcamentoNome } = params;
+    const { fornecedorNome, responsavel, entidade, itens, orcamentoNome, linkProposta } = params;
 
     const itemsHtml = itens.map(item => `
     <tr>
