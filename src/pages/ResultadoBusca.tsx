@@ -78,32 +78,20 @@ export default function ResultadoBusca() {
   const isLoadingAll = queries.some(q => q.isLoading);
 
   return (
-    <MainLayout title="Resultado da Busca" subtitle={`Pesquisa final para ${nomeOrcamento || 'seu orçamento'}`}>
+    <MainLayout title="Resultado da Busca" subtitle="Preços encontrados para os itens solicitados">
       <div className="max-w-5xl mx-auto space-y-6">
-        {/* Botão Voltar */}
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" onClick={() => navigate(-1)} className="gap-2 text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="h-4 w-4" />
-            Voltar para Seleção
-          </Button>
-        </div>
-
         {/* Resumo Card */}
-        <div className="flex flex-col md:flex-row items-center justify-between rounded-xl border border-border bg-card p-6 gap-6 shadow-sm border-l-4 border-l-primary">
+        <div className="flex flex-col md:flex-row items-center justify-between rounded-lg border border-border bg-card p-5 gap-6 shadow-sm">
           <div className="flex items-center gap-4 w-full md:w-auto">
-            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 text-primary shadow-inner">
-              {isLoadingAll ? (
-                <Loader2 className="h-7 w-7 animate-spin" />
-              ) : (
-                <FileCheck className="h-7 w-7" />
-              )}
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100">
+              <FileCheck className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-xl font-bold text-foreground">
-                {isLoadingAll ? "Cruzando dados..." : `${totalEncontrados} preços consolidados`}
+              <p className="text-xl font-bold text-foreground leading-tight">
+                {isLoadingAll ? "0 preços encontrados" : `${totalEncontrados} preços encontrados`}
               </p>
               <p className="text-sm text-muted-foreground">
-                {itensSelecionados.length} itens no total • Pesquisando em todas as fontes
+                Para {itensSelecionados.length} itens solicitados
               </p>
             </div>
           </div>
@@ -111,69 +99,57 @@ export default function ResultadoBusca() {
           <div className="flex gap-3 w-full md:w-auto">
             <Button
               variant="outline"
-              className="gap-2 flex-1 md:flex-none h-11"
+              className="gap-2 flex-1 md:flex-none h-10 border-slate-200 text-slate-600 hover:bg-slate-50"
               disabled={totalEncontrados === 0}
               onClick={() => navigate("/solicitar-fornecedores", {
                 state: { itens: resultadosDetalhados, nomeOrcamento }
               })}
             >
               <Send className="h-4 w-4" />
-              Cotação Fornecedores
+              Solicitar a Fornecedores
             </Button>
             <Button
-              className="gap-2 flex-1 md:flex-none h-11 px-6 shadow-lg shadow-primary/20"
+              className="gap-2 flex-1 md:flex-none h-10 px-6 bg-[#D84B16] hover:bg-[#BF4213] text-white"
               disabled={totalEncontrados === 0}
               onClick={() => navigate("/relatorio-final", {
                 state: { itens: resultadosDetalhados, nomeOrcamento }
               })}
             >
               <FileText className="h-4 w-4" />
-              Gerar Relatorório
+              Finalizar Orçamento
             </Button>
           </div>
         </div>
 
-        {/* Lista de itens */}
-        <div className="space-y-6">
+        {/* Lista de itens solicitado */}
+        <div className="space-y-4">
           {resultadosDetalhados.map((item) => (
-            <div key={item.id} className="rounded-xl border border-border bg-card overflow-hidden shadow-md transition-all hover:shadow-lg">
+            <div key={item.id} className="rounded-lg border border-border bg-card overflow-hidden shadow-sm">
               {/* Header do item */}
               <button
                 onClick={() => toggleExpandir(item.id)}
-                className="flex w-full items-center justify-between p-5 bg-muted/20 hover:bg-muted/40 transition-colors"
+                className="flex w-full items-center justify-between p-5 hover:bg-muted/10 transition-colors"
               >
-                <div className="flex items-center gap-5">
-                  <div className="h-10 w-10 rounded-full bg-background border flex items-center justify-center font-bold text-primary">
-                    {item.quantidade}
-                  </div>
-                  <div className="text-left">
-                    <p className="font-bold text-foreground text-xl leading-tight">{item.nome}</p>
-                    <div className="flex items-center gap-3 mt-1">
-                      <span className="text-xs font-semibold px-2 py-0.5 rounded bg-primary/10 text-primary uppercase">
-                        {item.unidade}
-                      </span>
-                      <span className="w-1.5 h-1.5 rounded-full bg-border" />
-                      <span className="text-sm text-muted-foreground font-medium">
-                        {item.loading ? "Buscando referências de mercado..." : `${item.itensEncontrados.length} preços encontrados`}
-                      </span>
-                    </div>
-                  </div>
+                <div className="text-left">
+                  <p className="font-bold text-slate-800 text-lg leading-tight">{item.nome}</p>
+                  <p className="text-sm text-muted-foreground mt-1 font-medium">
+                    {item.quantidade} {item.unidade} • {item.loading ? "Pesquisando..." : `${item.itensEncontrados.length} preços encontrados`}
+                  </p>
                 </div>
                 {expandido[item.id] ? (
-                  <ChevronUp className="h-6 w-6 text-muted-foreground" />
+                  <ChevronUp className="h-5 w-5 text-muted-foreground" />
                 ) : (
-                  <ChevronDown className="h-6 w-6 text-muted-foreground" />
+                  <ChevronDown className="h-5 w-5 text-muted-foreground" />
                 )}
               </button>
 
               {/* Detalhes expandidos */}
               {expandido[item.id] && (
-                <div className="border-t border-border bg-background">
+                <div className="border-t border-border bg-white">
                   {item.itensEncontrados.length === 0 && !item.loading && (
-                    <div className="p-12 text-center text-muted-foreground">
-                      <AlertCircle className="h-10 w-10 mx-auto mb-3 opacity-30 text-primary" />
-                      <p className="text-lg font-medium">Nenhum preço adicional encontrado.</p>
-                      <p className="text-sm">Tente ajustar o nome do item para uma busca mais ampla.</p>
+                    <div className="p-8 text-center text-muted-foreground">
+                      <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                      <p>Nenhum preço encontrado com os filtros atuais.</p>
                     </div>
                   )}
 
@@ -216,7 +192,7 @@ export default function ResultadoBusca() {
 
                                 {isOriginal && (
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest rounded bg-primary text-white">
-                                    Selecionado
+                                    Original
                                   </span>
                                 )}
 
