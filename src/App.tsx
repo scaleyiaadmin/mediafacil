@@ -23,6 +23,7 @@ import AdminUsuarios from "./pages/admin/AdminUsuarios";
 import AdminTabelas from "./pages/admin/AdminTabelas";
 import AdminFornecedores from "./pages/admin/AdminFornecedores";
 import PropostaFornecedor from "./pages/PropostaFornecedor";
+import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -36,6 +37,7 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <Routes>
+              <Route path="/login" element={<Login />} />
               <Route path="/" element={<Dashboard />} />
               <Route path="/novo-orcamento" element={<NovoOrcamento />} />
               <Route path="/buscar-itens" element={<BuscarItens />} />

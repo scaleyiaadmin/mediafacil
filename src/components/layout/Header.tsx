@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { NotificationDropdown } from "@/components/NotificationDropdown";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 
 interface HeaderProps {
   title: string;
@@ -11,6 +13,18 @@ interface HeaderProps {
 
 export function Header({ title, subtitle }: HeaderProps) {
   const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+
+      toast.success("Logoff realizado com sucesso");
+      navigate("/login");
+    } catch (error: any) {
+      toast.error("Erro ao sair: " + error.message);
+    }
+  };
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background/95 backdrop-blur px-6">
@@ -35,7 +49,7 @@ export function Header({ title, subtitle }: HeaderProps) {
               Perfil e Configurações
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive cursor-pointer">Sair</DropdownMenuItem>
+            <DropdownMenuItem onClick={handleLogout} className="text-destructive cursor-pointer">Sair</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
