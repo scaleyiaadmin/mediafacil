@@ -102,19 +102,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
         };
 
-        // Escuta mudanças no estado de autenticação
-        // O Supabase dispara o evento INITIAL_SESSION (ou similar) logo no início
+        // Initial session check
+        const initSession = async () => {
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                console.log("AuthContext: Sessão inicial carregada:", !!session);
+                await handleAuthChange(session);
+            } catch (err) {
+                console.error("AuthContext: Erro ao carregar sessão inicial:", err);
+                if (isMounted) setLoading(false);
+            }
+        };
+
+        initSession();
+
+        // Listen for auth changes after initial check
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
             console.log("AuthContext: Evento de auth recebido:", _event);
-            await handleAuthChange(session);
-        });
-
-        // Fallback: se o listener demorar, tenta pegar a sessão atual
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            if (session && loading) {
-                handleAuthChange(session);
-            } else if (!session) {
-                setLoading(false);
+            if (_event === 'SIGNED_IN' || _event === 'SIGNED_OUT' || _event === 'USER_UPDATED' || _event === 'TOKEN_REFRESHED') {
+                await handleAuthChange(session);
             }
         });
 

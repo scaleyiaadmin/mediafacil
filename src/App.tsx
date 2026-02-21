@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { SidebarProvider } from "@/contexts/SidebarContext";
 import { SupportModeProvider } from "@/contexts/SupportModeContext";
 import Dashboard from "./pages/Dashboard";
@@ -49,7 +49,8 @@ const App = () => (
                 <Route path="/proposta/:token" element={<PropostaFornecedor />} />
 
                 {/* Protected Routes */}
-                <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                 <Route path="/novo-orcamento" element={<ProtectedRoute><NovoOrcamento /></ProtectedRoute>} />
                 <Route path="/buscar-itens" element={<ProtectedRoute><BuscarItens /></ProtectedRoute>} />
                 <Route path="/buscar-itens-manual" element={<ProtectedRoute><BuscarItensManual /></ProtectedRoute>} />

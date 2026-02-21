@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase";
 import logo from "@/assets/logo.png";
 
 const navigation = [
-  { name: "Dashboard", href: "/", icon: LayoutDashboard },
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Novo Orçamento", href: "/novo-orcamento", icon: FilePlus },
   { name: "Orçamentos", href: "/orcamentos", icon: FileText },
   { name: "Fornecedores", href: "/fornecedores", icon: Users },
@@ -18,7 +18,7 @@ export function Sidebar() {
   const { collapsed, toggleCollapsed, userRole, loadingRole } = useSidebarContext();
 
   const navigation = [
-    { name: "Dashboard", href: "/", icon: LayoutDashboard },
+    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "Novo Orçamento", href: "/novo-orcamento", icon: FilePlus },
     ...(userRole === 'super_admin' ? [{ name: "Fornecedores", href: "/fornecedores", icon: Users }] : []),
   ];
