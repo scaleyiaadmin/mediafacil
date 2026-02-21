@@ -1,12 +1,10 @@
 import { useState, useMemo, useEffect } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
-import { Send, MapPin, Briefcase, Mail, Info, Check, Building2, Search } from "lucide-react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { Send, MapPin, Briefcase, Mail, Info } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -14,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ufs, regioesPorUF, segmentos } from "@/data/regioes";
+import { ufs, segmentos } from "@/data/regioes";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { sendEmail, generateBudgetRequestHtml } from "@/lib/email";
@@ -35,12 +33,58 @@ export default function SolicitarFornecedores() {
   const navigate = useNavigate();
   const location = useLocation();
   const { createOrcamento } = useOrcamentos();
+  const { profile } = useAuth();
+
   const state = location.state as { orcamentoId?: string, itens?: any[], entidade?: string, responsavel?: string, nomeOrcamento?: string } | undefined;
 
-  // ... (keeping other states)
+  const [segmento, setSegmento] = useState("");
+  const [abrangencia, setAbrangencia] = useState<"brasil" | "ufs">("brasil");
+  const [ufsSelecionadas, setUfsSelecionadas] = useState<string[]>([]);
+  const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (profile) {
+      fetchFornecedores();
+    }
+  }, [profile]);
+
+  async function fetchFornecedores() {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('fornecedores')
+        .select('*')
+        .or(`entidade_id.eq.${profile?.entidade_id},entidade_id.is.null`);
+
+      if (error) throw error;
+      if (data) setFornecedores(data);
+    } catch (error) {
+      console.error("Erro ao buscar fornecedores:", error);
+      toast.error("Erro ao carregar fornecedores.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const fornecedoresFiltrados = useMemo(() => {
+    return fornecedores.filter((f) => {
+      const matchesSegmento = !segmento || f.segmentos.includes(segmento);
+      let matchesLocalizacao = true;
+      if (abrangencia === "ufs" && ufsSelecionadas.length > 0) {
+        matchesLocalizacao = ufsSelecionadas.includes(f.uf);
+      }
+      return matchesSegmento && matchesLocalizacao;
+    });
+  }, [fornecedores, segmento, abrangencia, ufsSelecionadas]);
+
+  const toggleUf = (uf: string) => {
+    setUfsSelecionadas((prev) =>
+      prev.includes(uf) ? prev.filter((u) => u !== uf) : [...prev, uf]
+    );
+  };
 
   const handleEnviar = async () => {
-    // Agora enviamos para TODOS os fornecedores filtrados pelos critérios de Segmento e Localização
     if (fornecedoresFiltrados.length === 0) {
       toast.error("Nenhum fornecedor encontrado para os critérios selecionados.");
       return;
@@ -50,7 +94,6 @@ export default function SolicitarFornecedores() {
     try {
       let orcamentoId = state?.orcamentoId;
 
-      // 1. Se não tiver ID (veio direto ou erro), cria um rascunho
       if (!orcamentoId) {
         const orc = await createOrcamento(
           state?.nomeOrcamento || "Novo Orçamento",
@@ -60,21 +103,18 @@ export default function SolicitarFornecedores() {
         );
         orcamentoId = orc.id;
       } else {
-        // Atualizar status para waiting_suppliers
         await supabase
           .from('orcamentos')
           .update({ status: 'waiting_suppliers' })
           .eq('id', orcamentoId);
       }
 
-      // 2. Vincular fornecedores filtrados ao orçamento
       const fornecedoresToInsert = fornecedoresFiltrados.map(f => ({
         orcamento_id: orcamentoId,
         fornecedor_id: f.id,
         status: 'pending'
       }));
 
-      // Primeiro limpar vínculos antigos se houver (para evitar duplicatas)
       await supabase.from('orcamento_fornecedores').delete().eq('orcamento_id', orcamentoId);
 
       const { error: insertErr } = await supabase
@@ -83,7 +123,6 @@ export default function SolicitarFornecedores() {
 
       if (insertErr) throw insertErr;
 
-      // 3. Buscar relações para pegar os tokens e enviar e-mails
       const { data: relations, error: relError } = await supabase
         .from('orcamento_fornecedores')
         .select('*, fornecedores(razao_social, email)')
@@ -243,10 +282,10 @@ export default function SolicitarFornecedores() {
           </Button>
           <Button
             onClick={handleEnviar}
-            className="h-12 px-8 gap-2 bg-orange-400 hover:bg-orange-500 text-white font-bold"
+            className="h-12 px-8 gap-2 bg-orange-500 hover:bg-orange-600 text-white font-bold"
             disabled={loading || !segmento || (abrangencia === 'ufs' && ufsSelecionadas.length === 0)}
           >
-            {loading ? <span className="animate-spin mr-2">◌</span> : <Send className="h-4 w-4" />}
+            {loading ? <span className="animate-spin mr-2 text-white">◌</span> : <Send className="h-4 w-4" />}
             Enviar solicitações de orçamento
           </Button>
         </div>
