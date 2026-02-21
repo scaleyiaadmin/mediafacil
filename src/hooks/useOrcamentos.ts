@@ -19,15 +19,15 @@ export function useOrcamentos() {
     const [error, setError] = useState<string | null>(null);
     const { user, profile } = useAuth();
 
-    const fetchOrcamentos = useCallback(async () => {
+    const fetchOrcamentos = useCallback(async (silent = false) => {
         if (!user || !profile?.entidade_id) {
             setOrcamentos([]);
-            setLoading(false);
+            if (!silent) setLoading(false);
             return;
         }
 
         try {
-            setLoading(true);
+            if (!silent) setLoading(true);
             const { data, error } = await supabase
                 .from('orcamentos')
                 .select('*')
@@ -51,20 +51,18 @@ export function useOrcamentos() {
             console.error('Erro ao buscar orçamentos:', err);
             setError(err.message);
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     }, [user, profile?.entidade_id]);
 
     useEffect(() => {
-        // Busca inicial
-        fetchOrcamentos();
+        // Busca inicial (com loading visível)
+        fetchOrcamentos(false);
 
-        // Automação: Polling de 2 em 2 segundos conforme pedido pelo usuário
+        // Automação: Polling de 2 em 2 segundos (silencioso)
         const intervalId = setInterval(() => {
-            // Só busca se o usuário estiver ativo e não estiver em loading inicial
             if (user && profile?.entidade_id) {
-                console.log("[useOrcamentos] Polling automático de 2s...");
-                fetchOrcamentos();
+                fetchOrcamentos(true);
             }
         }, 2000);
 
