@@ -1,3 +1,5 @@
+import { supabase } from './supabase';
+
 export interface PNCPItem {
     id: string;
     nome: string;
@@ -13,13 +15,96 @@ export interface PNCPItem {
 }
 
 /**
- * Busca itens no PNCP em duas etapas (Contratos/Licitações -> Itens).
- * 1. Busca licitações/contratos que contenham o termo.
- * 2. Busca os itens de cada um desses contratos em paralelo.
+ * Busca itens localmente na tabela sincronizada do PNCP (Muito Rápido)
+ */
+export async function searchLocalPNCP(termo: string): Promise<PNCPItem[]> {
+    if (!termo || termo.length < 3) return [];
+
+    try {
+        const { data, error } = await supabase
+            .from('referencia_pncp')
+            .select('*')
+            .textSearch('item_nome', termo, {
+                type: 'websearch',
+                config: 'portuguese'
+            })
+            .limit(40);
+
+        if (error || !data) {
+            console.error("[PNCP Local] Erro na busca:", error);
+            return [];
+        }
+
+        return data.map(item => ({
+            id: `local-pncp-${item.id}`,
+            nome: item.item_nome,
+            unidade: item.unidade || 'un',
+            fonte: 'PNCP (Local)',
+            preco: parseFloat(item.valor_unitario) || 0,
+            data: item.data_publicacao ? new Date(item.data_publicacao).toLocaleDateString('pt-BR') : "-",
+            orgao: item.orgao_nome || "Órgão desconhecido",
+            modalidade: item.modalidade || "Não informada",
+            cnpj: item.orgao_cnpj,
+            cidadeUf: item.municipio && item.uf ? `${item.municipio}/${item.uf}` : item.uf || "Brasil",
+            metadata: "Base de Dados Local"
+        }));
+    } catch (err) {
+        console.error("[PNCP Local] Erro inesperado:", err);
+        return [];
+    }
+}
+
+/**
+ * Busca itens no PNCP seguindo uma estratégia híbrida:
+ * 1. Busca primeiro no banco local (instantâneo).
+ * 2. Se trouxer poucos resultados, busca na API do governo (lento mas atualizado).
  */
 export async function searchPNCPItems(termo: string): Promise<PNCPItem[]> {
     if (!termo || termo.length < 3) return [];
 
+    try {
+        console.log(`[PNCP] Iniciando busca híbrida para: "${termo}"`);
+
+        // 1. Tentar busca local primeiro
+        const localResults = await searchLocalPNCP(termo);
+
+        // Se já temos resultados suficientes (ex: 8+), retornamos apenas eles para privilegiar velocidade
+        if (localResults.length >= 8) {
+            console.log(`[PNCP] Busca local satisfatória: ${localResults.length} itens.`);
+            return localResults;
+        }
+
+        console.log(`[PNCP] Resultados locais insuficientes (${localResults.length}). Acionando API do Governo...`);
+
+        // 2. Fallback para API (Busca em duas etapas)
+        const apiResults = await searchPNCPItemsAPI(termo);
+
+        // Unificar e remover duplicatas aproximadas (mesmo órgão e preço muito similar)
+        const combined = [...localResults];
+
+        apiResults.forEach(apiItem => {
+            const isDuplicate = combined.some(localItem =>
+                localItem.orgao === apiItem.orgao &&
+                Math.abs(localItem.preco - apiItem.preco) < 0.01 &&
+                localItem.nome.toLowerCase() === apiItem.nome.toLowerCase()
+            );
+
+            if (!isDuplicate) {
+                combined.push(apiItem);
+            }
+        });
+
+        return combined;
+    } catch (error) {
+        console.error("Erro geral PNCP:", error);
+        return [];
+    }
+}
+
+/**
+ * Busca itens na API oficial do PNCP (Implementação original)
+ */
+async function searchPNCPItemsAPI(termo: string): Promise<PNCPItem[]> {
     try {
         const hoje = new Date();
 
