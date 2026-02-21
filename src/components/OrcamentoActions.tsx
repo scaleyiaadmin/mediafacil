@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Eye, Pencil, Copy, Trash2, CheckCircle, RefreshCw, Loader2 } from "lucide-react";
+import { Eye, Pencil, Copy, Trash2, CheckCircle, RefreshCw, Loader2, ShoppingBag } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import {
@@ -90,8 +90,41 @@ export function OrcamentoActions({ id, nome, status, onDelete, onFinalize, onRes
 
   const handleResendClick = (e: React.MouseEvent) => {
     e.preventDefault(); e.stopPropagation();
-    navigate(`/solicitar-fornecedores?resend=${id}`);
     onResend?.(id);
+  };
+
+  const handleCestaClick = async (e: React.MouseEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    setIsVerifying(true);
+    try {
+      const { data: items, error } = await supabase
+        .from('orcamento_itens')
+        .select('*')
+        .eq('orcamento_id', id);
+
+      if (error) throw error;
+
+      const itensFormatados = (items || []).map(i => ({
+        id: i.id,
+        nome: i.nome,
+        unidade: i.unidade || 'UN',
+        quantidade: i.quantidade || 1,
+        preco: Number(i.valor_referencia) || 0,
+        fonte: i.descricao || 'Banco de Dados'
+      }));
+
+      navigate("/cesta-precos", {
+        state: {
+          orcamentoId: id,
+          itensSelecionados: itensFormatados,
+          nomeOrcamento: nome,
+        }
+      });
+    } catch (err: any) {
+      toast.error("Erro ao carregar cesta: " + err.message);
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   const handleConfirmFinalize = async () => {
@@ -202,6 +235,18 @@ export function OrcamentoActions({ id, nome, status, onDelete, onFinalize, onRes
           </TooltipTrigger>
           <TooltipContent><p>Duplicar</p></TooltipContent>
         </Tooltip>
+
+        {/* Cesta de Preços (somente finalizado) */}
+        {status === "completed" && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={handleCestaClick} disabled={isVerifying}>
+                {isVerifying ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShoppingBag className="h-4 w-4" />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent><p>Ver Cesta de Preços</p></TooltipContent>
+          </Tooltip>
+        )}
 
         {/* Excluir */}
         <Tooltip>

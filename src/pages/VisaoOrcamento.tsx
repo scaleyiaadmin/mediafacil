@@ -184,6 +184,32 @@ export default function VisaoOrcamento() {
                 Ver Relatório Final
               </Button>
             </Link>
+
+            <Button
+              size="lg"
+              variant="outline"
+              className="gap-2"
+              onClick={() => {
+                const itensFormatados = orcamento.itens.map(i => ({
+                  id: i.id,
+                  nome: i.nome,
+                  unidade: i.unidade,
+                  quantidade: i.quantidade,
+                  preco: 0, // VisaoOrcamento lacks unit price context for specific sources here
+                  fonte: i.descricao || 'Banco de Dados'
+                }));
+                navigate("/cesta-precos", {
+                  state: {
+                    orcamentoId: orcamento.id,
+                    itensSelecionados: itensFormatados,
+                    nomeOrcamento: orcamento.nome
+                  }
+                });
+              }}
+            >
+              <Package className="h-4 w-4" />
+              Ver Cesta de Preços
+            </Button>
           </div>
         </div>
       </MainLayout>
