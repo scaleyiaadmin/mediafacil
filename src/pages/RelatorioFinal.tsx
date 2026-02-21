@@ -93,8 +93,8 @@ export default function RelatorioFinal() {
 
   const relatorioData = {
     ...defaultRelatorioData,
-    entidade: entidade?.nome || state?.entidade || defaultRelatorioData.entidade,
-    responsavel: profile?.nome || state?.responsavel || defaultRelatorioData.responsavel,
+    entidade: entidade?.nome || state?.entidade || "Entidade não identificada",
+    responsavel: profile?.nome || state?.responsavel || "Responsável não identificado",
     dataRelatorio: new Date().toLocaleDateString('pt-BR'),
     fornecedoresSolicitados: fornecedoresNomes,
     itens: state?.itens ? state.itens.map(item => {

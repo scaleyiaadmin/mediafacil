@@ -82,8 +82,8 @@ export default function ResultadoBusca() {
                     error: false,
                     quantidade: i.quantidade || 1
                   })),
-                  entidade: entidade?.nome || "Prefeitura Municipal",
-                  responsavel: profile?.nome || "Usuário",
+                  entidade: entidade?.nome || "Carregando entidade...",
+                  responsavel: profile?.nome || "Carregando responsável...",
                   nomeOrcamento
                 }
               })}

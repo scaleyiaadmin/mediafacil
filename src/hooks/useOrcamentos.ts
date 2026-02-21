@@ -89,7 +89,7 @@ export function useOrcamentos() {
             if (!profile?.entidade_id) throw new Error("Aguardando carregamento do perfil...");
 
             const entidadeId = profile.entidade_id;
-            const usuarioId = user.id;
+            const usuarioId = profile.id; // Alterado de user.id para profile.id para evitar erro de FK
 
             // 1. Insert Orcamento
             const { data: orcamento, error: orcamentoError } = await supabase
