@@ -1,9 +1,13 @@
+import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { FileCheck, Building2, Calendar, MapPin, ArrowLeft, Sparkles, ShoppingBag } from "lucide-react";
+import { FileCheck, Building2, Calendar, MapPin, ArrowLeft, Sparkles, ShoppingBag, Loader2 } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { PNCPItem } from "@/lib/pncp";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOrcamentos } from "@/hooks/useOrcamentos";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 
 interface ItemSelecionado extends PNCPItem {
   quantidade: number;
@@ -13,9 +17,13 @@ export default function ResultadoBusca() {
   const navigate = useNavigate();
   const location = useLocation();
   const { profile, entidade } = useAuth();
+  const { createOrcamento } = useOrcamentos();
 
   const itensSelecionados = (location.state?.itensSelecionados as ItemSelecionado[]) || [];
   const nomeOrcamento = location.state?.nomeOrcamento || "Orçamento";
+  const orcamentoId = location.state?.orcamentoId as string | undefined; // ID do rascunho já salvo
+
+  const [isFinalizing, setIsFinalizing] = useState(false);
 
   const totalSelecionados = itensSelecionados.length;
 
@@ -34,6 +42,55 @@ export default function ResultadoBusca() {
       ? precosUnitarios[meio]
       : (precosUnitarios[meio - 1] + precosUnitarios[meio]) / 2
   );
+
+  const handleFinalizar = async () => {
+    if (itensSelecionados.length === 0) {
+      toast.error("Nenhum item para finalizar.");
+      return;
+    }
+    setIsFinalizing(true);
+    try {
+      let idFinal = orcamentoId;
+
+      if (idFinal) {
+        // Atualizar itens do rascunho existente
+        await supabase.from('orcamento_itens').delete().eq('orcamento_id', idFinal);
+        const { error: itensErr } = await supabase.from('orcamento_itens').insert(
+          itensSelecionados.map(i => ({
+            orcamento_id: idFinal,
+            nome: i.nome,
+            descricao: i.fonte || null,
+            unidade: i.unidade || 'UN',
+            quantidade: i.quantidade || 1,
+            valor_referencia: i.preco || 0
+          }))
+        );
+        if (itensErr) throw itensErr;
+      } else {
+        // Criar novo rascunho com os itens
+        const orc = await createOrcamento(nomeOrcamento, itensSelecionados, [], 'draft');
+        if (orc) idFinal = orc.id;
+      }
+
+      // Navegar para o relatório final passando todos os dados necessários
+      navigate("/relatorio-final", {
+        state: {
+          orcamentoId: idFinal,
+          itens: itensSelecionados,  // dados brutos com preco real
+          nomeOrcamento,
+          entidade: entidade?.nome || "Prefeitura não identificada",
+          responsavel: profile?.nome || "Usuário não identificado",
+          media: mediaUnitaria,
+          mediana: medianaUnitaria,
+          valorTotal
+        }
+      });
+    } catch (err: any) {
+      toast.error("Erro ao salvar: " + err.message);
+    } finally {
+      setIsFinalizing(false);
+    }
+  };
 
   return (
     <MainLayout title="Resumo da Seleção" subtitle={nomeOrcamento}>
@@ -73,23 +130,13 @@ export default function ResultadoBusca() {
           <div className="flex items-center gap-3 w-full md:w-auto">
             <Button
               className="gap-2 flex-1 md:flex-none h-11 px-6 shadow-md hover:shadow-lg transition-all"
-              onClick={() => navigate("/relatorio-final", {
-                state: {
-                  itens: itensSelecionados.map(i => ({
-                    ...i,
-                    itensEncontrados: [i],
-                    loading: false,
-                    error: false,
-                    quantidade: i.quantidade || 1
-                  })),
-                  entidade: entidade?.nome || "Prefeitura não identificada",
-                  responsavel: profile?.nome || "Usuário não identificado",
-                  nomeOrcamento
-                }
-              })}
+              onClick={handleFinalizar}
+              disabled={isFinalizing}
             >
-              <ShoppingBag className="h-4 w-4" />
-              Finalizar Orçamento
+              {isFinalizing
+                ? <><Loader2 className="h-4 w-4 animate-spin" /> Salvando...</>
+                : <><ShoppingBag className="h-4 w-4" /> Finalizar Orçamento</>
+              }
             </Button>
           </div>
         </div>
@@ -111,7 +158,6 @@ export default function ResultadoBusca() {
               </div>
             ) : (
               itensSelecionados.map((item) => {
-                // Determine badge color
                 let badgeColor = "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100";
                 let badgeDot = "bg-blue-500";
 
@@ -153,9 +199,7 @@ export default function ResultadoBusca() {
                         <p className="font-bold text-foreground text-lg leading-tight">{item.nome}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-xs text-muted-foreground font-medium uppercase mb-1">
-                          Total do Item
-                        </p>
+                        <p className="text-xs text-muted-foreground font-medium uppercase mb-1">Total do Item</p>
                         <p className="text-2xl font-black text-emerald-600">
                           R$ {totalPorItem.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </p>

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useOrcamentos } from "@/hooks/useOrcamentos";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
@@ -74,7 +75,11 @@ export default function RelatorioFinal() {
     entidade?: string,
     responsavel?: string,
     fornecedores?: any[],
-    nomeOrcamento?: string
+    nomeOrcamento?: string,
+    orcamentoId?: string,
+    valorTotal?: number,
+    media?: number,
+    mediana?: number
   } | undefined;
 
   useEffect(() => {
@@ -98,26 +103,18 @@ export default function RelatorioFinal() {
     dataRelatorio: new Date().toLocaleDateString('pt-BR'),
     fornecedoresSolicitados: fornecedoresNomes,
     itens: state?.itens ? state.itens.map(item => {
-      // Re-cálculo caso não venha pronto
-      const valores = item.itensEncontrados?.map((i: any) => i.preco ?? i.valor ?? 0) || [];
-      const soma = valores.reduce((a: number, b: number) => a + b, 0);
-      const media = valores.length > 0 ? soma / valores.length : (item.media || 0);
-
-      const valoresOrdenados = [...valores].sort((a, b) => a - b);
-      const meio = Math.floor(valoresOrdenados.length / 2);
-      const mediana = valores.length === 0 ? (item.mediana || 0) : (valoresOrdenados.length % 2 !== 0
-        ? valoresOrdenados[meio]
-        : (valoresOrdenados[meio - 1] + valoresOrdenados[meio]) / 2);
+      // Usa item.preco diretamente (formato do ResultadoBusca)
+      // Ou item.valor_referencia (formato do banco/VisaoOrcamento)
+      const preco = item.preco ?? item.valor_referencia ?? item.media ?? 0;
+      const media = item.media ?? preco;
+      const mediana = item.mediana ?? preco;
 
       return {
         id: item.id || Math.random().toString(),
         nome: item.nome,
         unidade: item.unidade || 'UN',
         quantidade: item.quantidade || 1,
-        precos: item.itensEncontrados?.map((i: any) => ({
-          fonte: i.fonte || "Desconhecido",
-          valor: i.preco ?? i.valor ?? 0
-        })) || [],
+        precos: [{ fonte: item.fonte || 'Referência', valor: preco }],
         media,
         mediana
       };
@@ -127,21 +124,33 @@ export default function RelatorioFinal() {
   const executeSave = async (status: "draft" | "waiting_suppliers" | "completed", nome: string) => {
     setIsSaving(true);
     try {
-      // Passa os itens brutos do state (não os transformados pelo relatório)
-      // O hook aceita: nome, quantidade, unidade, preco, valor, media, valor_referencia
-      const itensParaSalvar = state?.itens || [];
+      const orcamentoIdExistente = state?.orcamentoId;
 
-      await createOrcamento(
-        nome,
-        itensParaSalvar,
-        state?.fornecedores || [],
-        status
-      );
+      if (orcamentoIdExistente) {
+        // Orçamento já existe no banco (salvo pelo ResultadoBusca ou BuscarItensManual)
+        // Apenas atualizar o status e o nome
+        const { error } = await supabase
+          .from('orcamentos')
+          .update({ status, nome })
+          .eq('id', orcamentoIdExistente);
+        if (error) throw error;
+        toast.success(status === 'completed' ? 'Orçamento finalizado!' : 'Rascunho atualizado!');
+      } else {
+        // Sem ID prévio: criar do zero
+        await createOrcamento(
+          nome,
+          state?.itens || [],
+          state?.fornecedores || [],
+          status
+        );
+        toast.success('Orçamento salvo!');
+      }
 
       setIsNameDialogOpen(false);
       navigate("/orcamentos");
 
-    } catch (error) {
+    } catch (error: any) {
+      toast.error('Erro ao salvar: ' + error.message);
       console.error(error);
     } finally {
       setIsSaving(false);
