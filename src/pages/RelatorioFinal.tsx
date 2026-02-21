@@ -240,13 +240,6 @@ export default function RelatorioFinal() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="gap-2" onClick={() => handleOpenSaveDialog("draft")} disabled={isSaving}>
-              <FileEdit className="h-4 w-4" />
-              Salvar Rascunho
-            </Button>
-
-            <Separator orientation="vertical" className="h-6" />
-
             <Button variant="ghost" size="sm" className="gap-2" onClick={() => window.print()}>
               <Printer className="h-4 w-4" />
               Imprimir
@@ -254,11 +247,6 @@ export default function RelatorioFinal() {
             <Button variant="ghost" size="sm" className="gap-2" onClick={handleExportPDF}>
               <Download className="h-4 w-4" />
               PDF
-            </Button>
-
-            <Button size="sm" className="gap-2 ml-2" onClick={() => handleOpenSaveDialog(fornecedoresNomes.length > 0 ? "waiting_suppliers" : "completed")} disabled={isSaving}>
-              <Save className="h-4 w-4" />
-              {fornecedoresNomes.length > 0 ? "Finalizar e Enviar" : "Finalizar Orçamento"}
             </Button>
           </div>
         </div>
