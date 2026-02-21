@@ -389,7 +389,7 @@ export default function NovoOrcamento() {
               <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
                 <Input
                   type="file"
-                  accept=".xlsx,.xls"
+                  accept=".xlsx,.xls,.csv"
                   onChange={handleFileSelect}
                   className="hidden"
                   id="file-upload"
@@ -406,7 +406,7 @@ export default function NovoOrcamento() {
                       Clique para selecionar o arquivo
                     </p>
                     <p className="text-sm text-muted-foreground mt-1">
-                      Arquivos suportados: .xlsx, .xls
+                      Arquivos suportados: .xlsx, .xls, .csv
                     </p>
                   </div>
                 </label>
