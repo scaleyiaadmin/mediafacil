@@ -73,20 +73,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             // 2. Fetch Entity Data
             if (prof.entidade_id) {
-                const { data: ent, error: entErr } = await supabase
-                    .from('entidades')
-                    .select('*')
-                    .eq('id', prof.entidade_id)
-                    .single();
+                console.log("AuthContext: Buscando dados da entidade", prof.entidade_id);
+                try {
+                    const { data: ent, error: entErr } = await supabase
+                        .from('entidades')
+                        .select('*')
+                        .eq('id', prof.entidade_id)
+                        .single();
 
-                if (entErr) {
-                    console.error("AuthContext: Erro ao buscar entidade:", entErr);
-                } else {
-                    console.log("AuthContext: Entidade carregada:", ent.nome);
-                    setEntidade(ent);
+                    if (entErr) {
+                        console.error("AuthContext: Falha ao carregar entidade (RLS ou ID inexistente):", entErr.message);
+                        setEntidade(null);
+                    } else if (ent) {
+                        console.log("AuthContext: Entidade carregada com sucesso:", ent.nome);
+                        setEntidade(ent);
+                    } else {
+                        console.warn("AuthContext: Entidade retornou vazia (não encontrada).");
+                        setEntidade(null);
+                    }
+                } catch (err) {
+                    console.error("AuthContext: Erro de rede/supbase ao buscar entidade:", err);
+                    setEntidade(null);
                 }
             } else {
-                console.warn("AuthContext: Usuário sem entidade_id vinculada");
+                console.warn("AuthContext: Usuário sem entidade_id vinculada no perfil público.");
                 setEntidade(null);
             }
         } catch (err) {
