@@ -80,37 +80,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     useEffect(() => {
-        // Check active sessions
-        supabase.auth.getSession().then(async ({ data: { session } }) => {
-            const currentUser = session?.user ?? null;
-            setUser(currentUser);
-            if (currentUser) {
-                await fetchProfileAndEntidade(currentUser);
-            }
-            setLoading(false);
-        });
+        let isMounted = true;
 
-        // Listen for auth changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-            setLoading(true); // Garante que rotas protegidas aguardem o processamento
+        const handleAuthChange = async (session: any) => {
             const currentUser = session?.user ?? null;
 
-            // If user logged out or changed, reset profile first
             if (!currentUser) {
-                setProfile(null);
-                setEntidade(null);
-                setUser(null);
-                setLoading(false);
+                if (isMounted) {
+                    setProfile(null);
+                    setEntidade(null);
+                    setUser(null);
+                    setLoading(false);
+                }
                 return;
             }
 
-            // If user logged in or is still same, update profile
-            setUser(currentUser);
-            await fetchProfileAndEntidade(currentUser);
-            setLoading(false);
+            if (isMounted) {
+                setUser(currentUser);
+                await fetchProfileAndEntidade(currentUser);
+                setLoading(false);
+            }
+        };
+
+        // Escuta mudanças no estado de autenticação
+        // O Supabase dispara o evento INITIAL_SESSION (ou similar) logo no início
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+            console.log("AuthContext: Evento de auth recebido:", _event);
+            await handleAuthChange(session);
         });
 
-        return () => subscription.unsubscribe();
+        // Fallback: se o listener demorar, tenta pegar a sessão atual
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            if (session && loading) {
+                handleAuthChange(session);
+            } else if (!session) {
+                setLoading(false);
+            }
+        });
+
+        return () => {
+            isMounted = false;
+            subscription.unsubscribe();
+        };
     }, []);
 
     const signIn = async (email: string, password: string) => {
