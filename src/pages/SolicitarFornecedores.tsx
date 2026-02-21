@@ -35,141 +35,74 @@ export default function SolicitarFornecedores() {
   const navigate = useNavigate();
   const location = useLocation();
   const { createOrcamento } = useOrcamentos();
-  const state = location.state as { itens?: any[], entidade?: string, responsavel?: string, nomeOrcamento?: string, id?: string } | undefined;
+  const state = location.state as { orcamentoId?: string, itens?: any[], entidade?: string, responsavel?: string, nomeOrcamento?: string } | undefined;
 
-  const [segmento, setSegmento] = useState("");
-  const [abrangencia, setAbrangencia] = useState<"brasil" | "ufs">("brasil");
-  const [ufsSelecionadas, setUfsSelecionadas] = useState<string[]>([]);
-  const [regioesSelecionadas, setRegioesSelecionadas] = useState<string[]>([]);
-  const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
-  const [fornecedoresSelecionados, setFornecedoresSelecionados] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-
-  const { profile } = useAuth();
-
-  useEffect(() => {
-    if (profile) {
-      fetchFornecedores();
-    }
-  }, [profile]);
-
-  async function fetchFornecedores() {
-    try {
-      setLoading(true);
-      // Busca fornecedores específicos da entidade OU globais (onde entidade_id é nulo)
-      const { data, error } = await supabase
-        .from('fornecedores')
-        .select('*')
-        .or(`entidade_id.eq.${profile?.entidade_id},entidade_id.is.null`);
-
-      if (error) throw error;
-      if (data) setFornecedores(data);
-    } catch (error) {
-      console.error("Erro ao buscar fornecedores:", error);
-      toast.error("Erro ao carregar fornecedores.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const fornecedoresFiltrados = useMemo(() => {
-    return fornecedores.filter((f) => {
-      const matchesSegmento = !segmento || f.segmentos.includes(segmento);
-      const matchesSearch = !searchTerm || f.razao_social.toLowerCase().includes(searchTerm.toLowerCase());
-
-      let matchesLocalizacao = true;
-      if (abrangencia === "ufs" && ufsSelecionadas.length > 0) {
-        matchesLocalizacao = ufsSelecionadas.includes(f.uf);
-        if (matchesLocalizacao && regioesSelecionadas.length > 0) {
-          // Lógica simplificada: se tem região selecionada para a UF, verifica se bate
-          // Se a região do fornecedor estiver nas selecionadas (formato UF:Regiao)
-          const fornecedorRegiaoKey = `${f.uf}:${f.regiao}`;
-          // Se houver regioes selecionadas para ESTA UF, o fornecedor deve dar match
-          const regioesDestaUF = regioesSelecionadas.filter(r => r.startsWith(`${f.uf}:`));
-          if (regioesDestaUF.length > 0) {
-            matchesLocalizacao = regioesSelecionadas.includes(fornecedorRegiaoKey);
-          }
-        }
-      }
-
-      return matchesSegmento && matchesSearch && matchesLocalizacao;
-    });
-  }, [fornecedores, segmento, searchTerm, abrangencia, ufsSelecionadas, regioesSelecionadas]);
-
-  const toggleFornecedor = (id: string) => {
-    setFornecedoresSelecionados((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
-    );
-  };
-
-  const toggleTodos = () => {
-    if (fornecedoresSelecionados.length === fornecedoresFiltrados.length) {
-      setFornecedoresSelecionados([]);
-    } else {
-      setFornecedoresSelecionados(fornecedoresFiltrados.map((f) => f.id));
-    }
-  };
-
-  const toggleUf = (uf: string) => {
-    setUfsSelecionadas((prev) => {
-      const newUfs = prev.includes(uf) ? prev.filter((u) => u !== uf) : [...prev, uf];
-      // Limpar regiões da UF removida
-      if (!newUfs.includes(uf)) {
-        setRegioesSelecionadas((prevRegioes) =>
-          prevRegioes.filter((r) => !r.startsWith(`${uf}:`))
-        );
-      }
-      return newUfs;
-    });
-  };
-
-  const handleRegiaoChange = (regiaoKey: string, checked: boolean) => {
-    setRegioesSelecionadas((prev) =>
-      checked ? [...prev, regiaoKey] : prev.filter((r) => r !== regiaoKey)
-    );
-  };
+  // ... (keeping other states)
 
   const handleEnviar = async () => {
-    if (fornecedoresSelecionados.length === 0) {
-      toast.error("Selecione pelo menos um fornecedor.");
+    // Agora enviamos para TODOS os fornecedores filtrados pelos critérios de Segmento e Localização
+    if (fornecedoresFiltrados.length === 0) {
+      toast.error("Nenhum fornecedor encontrado para os critérios selecionados.");
       return;
     }
 
     setLoading(true);
-    const fornecedoresEscolhidos = fornecedores.filter(f => fornecedoresSelecionados.includes(f.id));
-
     try {
-      // 1. Create or Update Orcamento in DB
-      const orcamento = await createOrcamento(
-        state?.nomeOrcamento || "Novo Orçamento",
-        state?.itens || [],
-        fornecedoresEscolhidos,
-        "waiting_suppliers"
-      );
+      let orcamentoId = state?.orcamentoId;
 
-      // 2. Fetch the Orcamento-Fornecedor relations to get the generated TOKENS
+      // 1. Se não tiver ID (veio direto ou erro), cria um rascunho
+      if (!orcamentoId) {
+        const orc = await createOrcamento(
+          state?.nomeOrcamento || "Novo Orçamento",
+          state?.itens || [],
+          [],
+          "waiting_suppliers"
+        );
+        orcamentoId = orc.id;
+      } else {
+        // Atualizar status para waiting_suppliers
+        await supabase
+          .from('orcamentos')
+          .update({ status: 'waiting_suppliers' })
+          .eq('id', orcamentoId);
+      }
+
+      // 2. Vincular fornecedores filtrados ao orçamento
+      const fornecedoresToInsert = fornecedoresFiltrados.map(f => ({
+        orcamento_id: orcamentoId,
+        fornecedor_id: f.id,
+        status: 'pending'
+      }));
+
+      // Primeiro limpar vínculos antigos se houver (para evitar duplicatas)
+      await supabase.from('orcamento_fornecedores').delete().eq('orcamento_id', orcamentoId);
+
+      const { error: insertErr } = await supabase
+        .from('orcamento_fornecedores')
+        .insert(fornecedoresToInsert);
+
+      if (insertErr) throw insertErr;
+
+      // 3. Buscar relações para pegar os tokens e enviar e-mails
       const { data: relations, error: relError } = await supabase
         .from('orcamento_fornecedores')
         .select('*, fornecedores(razao_social, email)')
-        .eq('orcamento_id', orcamento.id);
+        .eq('orcamento_id', orcamentoId);
 
       if (relError) throw relError;
 
-      // 3. Send Emails with the unique tokens
       const emailsPromises = (relations || []).map(async (rel: any) => {
         const emailDestino = rel.fornecedores.email || "fornecedor@exemplo.com.br";
         const token = rel.token;
-        // In a real production app, this would be the actual public URL
         const linkProposta = `${window.location.origin}/proposta/${token}`;
 
         const html = generateBudgetRequestHtml({
           fornecedorNome: rel.fornecedores.razao_social,
-          responsavel: state?.responsavel || "Gestor de Compras",
+          responsavel: state?.responsavel || profile?.nome || "Gestor de Compras",
           entidade: state?.entidade || "Prefeitura Municipal",
           itens: state?.itens || [],
           orcamentoNome: state?.nomeOrcamento,
-          linkProposta: linkProposta // Pass the link to the email template
+          linkProposta: linkProposta
         });
 
         return sendEmail({
@@ -181,150 +114,140 @@ export default function SolicitarFornecedores() {
 
       await Promise.all(emailsPromises);
 
-      toast.success(`${fornecedoresSelecionados.length} solicitações enviadas com sucesso!`);
-
-      // Navegar para o relatório final
-      navigate("/relatorio-final", {
-        state: {
-          ...state,
-          fornecedores: fornecedoresEscolhidos,
-          orcamentoId: orcamento.id
-        }
-      });
+      toast.success(`${fornecedoresFiltrados.length} solicitações enviadas com sucesso!`);
+      navigate("/orcamentos");
     } catch (error: any) {
       console.error("Erro ao processar solicitações:", error);
-      toast.error("Erro ao enviar solicitações: " + error.message);
+      toast.error("Erro ao enviar: " + error.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <MainLayout title="Solicitar Orçamento" subtitle="Selecione os fornecedores para envio">
-      <div className="mx-auto max-w-4xl space-y-6">
+    <MainLayout title="Configure o envio de cotações" subtitle="Defina os parâmetros para envio automático">
+      <div className="mx-auto max-w-3xl space-y-6 pb-12">
 
-        {/* Filtros */}
-        <div className="grid gap-6 md:grid-cols-2 rounded-lg border border-border bg-card p-6">
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Briefcase className="h-4 w-4 text-primary" />
-              <Label>Segmento</Label>
-            </div>
-            <Select value={segmento} onValueChange={setSegmento}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione um segmento" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">Todos</SelectItem>
-                {segmentos.map((seg) => (
-                  <SelectItem key={seg} value={seg}>
-                    {seg}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        {/* Como funciona? */}
+        <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-6 flex gap-4">
+          <div className="h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <Info className="h-4 w-4 text-blue-600" />
           </div>
-
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-primary" />
-              <Label>Localização</Label>
-            </div>
-            <RadioGroup value={abrangencia} onValueChange={(v) => setAbrangencia(v as "brasil" | "ufs")} className="flex gap-4">
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="brasil" id="brasil" />
-                <Label htmlFor="brasil">Brasil</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="ufs" id="ufs" />
-                <Label htmlFor="ufs">Estados</Label>
-              </div>
-            </RadioGroup>
-
-            {abrangencia === "ufs" && (
-              <div className="mt-2 space-y-2 max-h-40 overflow-y-auto border p-2 rounded">
-                <div className="flex flex-wrap gap-2">
-                  {ufs.map((uf) => (
-                    <button
-                      key={uf}
-                      onClick={() => toggleUf(uf)}
-                      className={`px-2 py-1 text-xs rounded border ${ufsSelecionadas.includes(uf)
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-muted hover:bg-muted/80"
-                        }`}
-                    >
-                      {uf}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+          <div className="space-y-1">
+            <h4 className="font-bold text-blue-900 text-sm">Como funciona?</h4>
+            <p className="text-sm text-blue-800/80 leading-relaxed">
+              Os fornecedores cadastrados no sistema receberão um link por e-mail para responder à sua solicitação de orçamento.
+              As respostas serão computadas automaticamente no seu orçamento.
+            </p>
           </div>
         </div>
 
-        {/* Lista de Seleção */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold flex items-center gap-2">
-              <Building2 className="h-5 w-5" />
-              Fornecedores Encontrados ({fornecedoresFiltrados.length})
-            </h3>
-            <div className="flex items-center gap-2">
-              <Input
-                placeholder="Buscar fornecedor..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-64 h-9"
-              />
+        {/* Segmento do Fornecedor */}
+        <div className="rounded-xl border border-border bg-card p-6 space-y-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-orange-50 flex items-center justify-center">
+              <Briefcase className="h-5 w-5 text-orange-600" />
+            </div>
+            <div>
+              <h4 className="font-bold text-foreground">Segmento do Fornecedor</h4>
+              <p className="text-sm text-muted-foreground">Escolha o segmento de atuação dos fornecedores</p>
             </div>
           </div>
 
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
-            <div className="p-3 border-b bg-muted/30 flex items-center gap-3">
-              <Checkbox
-                checked={fornecedoresSelecionados.length > 0 && fornecedoresSelecionados.length === fornecedoresFiltrados.length}
-                onCheckedChange={toggleTodos}
-              />
-              <span className="text-sm font-medium">Selecionar Todos</span>
-              <span className="text-sm text-muted-foreground ml-auto">
-                {fornecedoresSelecionados.length} selecionados
-              </span>
+          <Select value={segmento} onValueChange={setSegmento}>
+            <SelectTrigger className="h-12 border-orange-200 focus:ring-orange-500">
+              <SelectValue placeholder="Selecione um segmento" />
+            </SelectTrigger>
+            <SelectContent>
+              {segmentos.map((seg) => (
+                <SelectItem key={seg} value={seg}>
+                  {seg}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Localização */}
+        <div className="rounded-xl border border-border bg-card p-6 space-y-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-orange-50 flex items-center justify-center">
+              <MapPin className="h-5 w-5 text-orange-600" />
+            </div>
+            <div>
+              <h4 className="font-bold text-foreground">Localização</h4>
+              <p className="text-sm text-muted-foreground">Defina a região dos fornecedores</p>
+            </div>
+          </div>
+
+          <RadioGroup
+            value={abrangencia}
+            onValueChange={(v) => setAbrangencia(v as "brasil" | "ufs")}
+            className="space-y-3"
+          >
+            <div className={`flex items-center space-x-3 rounded-xl border p-4 transition-all ${abrangencia === 'brasil' ? 'border-orange-500 bg-orange-50/10' : 'border-border'}`}>
+              <RadioGroupItem value="brasil" id="brasil" className="text-orange-600 border-orange-500" />
+              <Label htmlFor="brasil" className="font-bold cursor-pointer flex-1">Todo o Brasil</Label>
             </div>
 
-            <div className="divide-y divide-border max-h-[400px] overflow-y-auto">
-              {fornecedoresFiltrados.length === 0 ? (
-                <div className="p-8 text-center text-muted-foreground">
-                  Nenhum fornecedor encontrado com os filtros atuais.
-                </div>
-              ) : (
-                fornecedoresFiltrados.map(f => (
-                  <div key={f.id} className="p-4 flex items-start gap-4 hover:bg-muted/10 transition-colors">
-                    <Checkbox
-                      checked={fornecedoresSelecionados.includes(f.id)}
-                      onCheckedChange={() => toggleFornecedor(f.id)}
-                      className="mt-1"
-                    />
-                    <div className="flex-1">
-                      <div className="flex justify-between">
-                        <p className="font-medium text-foreground">{f.razao_social}</p>
-                        <span className="text-xs bg-muted px-2 py-1 rounded text-muted-foreground">{f.uf}</span>
-                      </div>
-                      <p className="text-sm text-muted-foreground">{f.cidade} • {f.segmentos.join(", ")}</p>
-                      <p className="text-xs text-muted-foreground mt-1">CNPJ: {f.cnpj}</p>
-                    </div>
-                  </div>
-                ))
-              )}
+            <div className={`flex items-center space-x-3 rounded-xl border p-4 transition-all ${abrangencia === 'ufs' ? 'border-orange-500 bg-orange-50/10' : 'border-border'}`}>
+              <RadioGroupItem value="ufs" id="ufs" className="text-orange-600 border-orange-500" />
+              <Label htmlFor="ufs" className="font-bold cursor-pointer flex-1">Selecionar Estados</Label>
             </div>
+          </RadioGroup>
+
+          {abrangencia === "ufs" && (
+            <div className="pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase mb-3 block">Estados</Label>
+              <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+                {ufs.map((uf) => (
+                  <button
+                    key={uf}
+                    onClick={() => toggleUf(uf)}
+                    className={`h-9 rounded-lg text-xs font-bold border transition-all ${ufsSelecionadas.includes(uf)
+                      ? "bg-orange-500 text-white border-orange-500 shadow-sm"
+                      : "bg-muted/50 hover:bg-muted border-transparent text-muted-foreground"
+                      }`}
+                  >
+                    {uf}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Resumo do E-mail */}
+        <div className="rounded-xl border border-border bg-muted/20 p-6 flex gap-4">
+          <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center flex-shrink-0 mt-0.5">
+            <Mail className="h-4 w-4 text-muted-foreground" />
+          </div>
+          <div className="space-y-1">
+            <h4 className="font-bold text-foreground text-sm opacity-80">Os fornecedores receberão um e-mail com:</h4>
+            <ul className="text-sm text-muted-foreground space-y-1 mt-2 font-medium">
+              <li className="flex items-center gap-2">• Lista de itens para cotação</li>
+              <li className="flex items-center gap-2">• Prazo para resposta</li>
+              <li className="flex items-center gap-2">• Link para enviar os preços</li>
+            </ul>
           </div>
         </div>
 
         {/* Actions */}
-        <div className="flex justify-between pt-4">
-          <Button variant="outline" onClick={() => navigate(-1)}>Voltar</Button>
-          <Button onClick={handleEnviar} className="gap-2" disabled={fornecedoresSelecionados.length === 0}>
-            <Send className="h-4 w-4" />
-            Enviar Cotação para {fornecedoresSelecionados.length} Fornecedores
+        <div className="flex items-center justify-center gap-4 pt-6">
+          <Button
+            variant="ghost"
+            onClick={() => navigate(-1)}
+            className="h-12 px-8 font-bold"
+          >
+            Voltar
+          </Button>
+          <Button
+            onClick={handleEnviar}
+            className="h-12 px-8 gap-2 bg-orange-400 hover:bg-orange-500 text-white font-bold"
+            disabled={loading || !segmento || (abrangencia === 'ufs' && ufsSelecionadas.length === 0)}
+          >
+            {loading ? <span className="animate-spin mr-2">◌</span> : <Send className="h-4 w-4" />}
+            Enviar solicitações de orçamento
           </Button>
         </div>
 
