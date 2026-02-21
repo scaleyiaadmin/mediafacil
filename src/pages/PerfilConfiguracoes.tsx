@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { User, Users, Building2, Edit, Trash2, Eye, UserPlus, Shield, AlertCircle, Lock, Loader2, RefreshCw } from "lucide-react";
 import { ufs } from "@/data/regioes";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Usuario {
   id: string;
@@ -42,6 +43,8 @@ const cargos = [
 
 export default function PerfilConfiguracoes() {
   console.log("PerfilConfiguracoes: Renderizando componente...");
+  const { profile: loggedProfile, entidade: loggedEntidade, refreshProfile } = useAuth();
+
   const [activeTab, setActiveTab] = useState("perfil");
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [setoresDisp, setSetoresDisp] = useState<{ id: string; nome: string }[]>([]);
@@ -53,7 +56,7 @@ export default function PerfilConfiguracoes() {
   const [dialogAlterarSenha, setDialogAlterarSenha] = useState(false);
   const [usuarioSelecionado, setUsuarioSelecionado] = useState<Usuario | null>(null);
 
-  // Perfil
+  // Perfil (local state for editing)
   const [perfil, setPerfil] = useState<Usuario | null>(null);
 
   // Novo usuário
@@ -66,7 +69,7 @@ export default function PerfilConfiguracoes() {
     is_admin: false
   });
 
-  // Entidade
+  // Entidade (local state for editing)
   const [entidade, setEntidade] = useState({
     id: "",
     nome: "",
@@ -77,69 +80,52 @@ export default function PerfilConfiguracoes() {
   });
 
   useEffect(() => {
+    if (loggedProfile) {
+      setPerfil(loggedProfile as any);
+    }
+    if (loggedEntidade) {
+      setEntidade(loggedEntidade as any);
+    }
+  }, [loggedProfile, loggedEntidade]);
+
+  useEffect(() => {
     fetchDados();
-  }, []);
+  }, [loggedProfile]);
 
   async function fetchDados() {
-    console.log("PerfilConfiguracoes: Iniciando fetchDados...");
+    if (!loggedProfile) return;
+
+    console.log("PerfilConfiguracoes: Buscando dados adicionais...");
     try {
       setLoading(true);
 
-      // 1. Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Usuário não autenticado.");
-
-      // 2. Fetch profile from public.usuarios
-      const { data: profile, error: profileErr } = await supabase
-        .from('usuarios')
-        .select('*')
-        .eq('email', user.email)
-        .single();
-
-      if (profileErr) throw profileErr;
-      setPerfil(profile);
-
-      // 3. Fetch Entity
-      if (profile.entidade_id) {
-        const { data: ent, error: entErr } = await supabase
-          .from('entidades')
+      // Fetch Other Users (if admin)
+      if (loggedProfile.is_admin || loggedProfile.tipo === 'super_admin') {
+        const { data: users, error: usersErr } = await supabase
+          .from('usuarios')
           .select('*')
-          .eq('id', profile.entidade_id)
-          .single();
+          .eq('entidade_id', loggedProfile.entidade_id)
+          .neq('id', loggedProfile.id);
 
-        if (entErr) throw entErr;
-        setEntidade(ent);
+        if (usersErr) throw usersErr;
+        setUsuarios(users);
+      }
 
-        // 4. Fetch Other Users (if admin)
-        if (profile.is_admin || profile.tipo === 'super_admin') {
-          const { data: users, error: usersErr } = await supabase
-            .from('usuarios')
-            .select('*')
-            .eq('entidade_id', profile.entidade_id)
-            .neq('id', profile.id);
-
-          if (usersErr) throw usersErr;
-          setUsuarios(users);
-        }
-
-        // 5. Fetch available sectors (with fallback)
-        console.log("PerfilConfiguracoes: Buscando setores para entidade:", profile.entidade_id);
+      // Fetch available sectors
+      if (loggedProfile.entidade_id) {
         let { data: sectors } = await supabase
           .from('setores')
           .select('id, nome')
-          .eq('entidade_id', profile.entidade_id)
+          .eq('entidade_id', loggedProfile.entidade_id)
           .order('nome');
 
         if (!sectors || sectors.length === 0) {
-          console.log("PerfilConfiguracoes: Nenhum setor encontrado para esta entidade, buscando todos...");
           const { data: allSectors } = await supabase
             .from('setores')
             .select('id, nome')
             .order('nome');
           sectors = allSectors;
         }
-
-        console.log("PerfilConfiguracoes: Setores carregados:", sectors?.length || 0);
         setSetoresDisp(sectors || []);
       }
 

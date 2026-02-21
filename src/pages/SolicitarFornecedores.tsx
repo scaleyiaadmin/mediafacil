@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { sendEmail, generateBudgetRequestHtml } from "@/lib/email";
 import { useOrcamentos } from "@/hooks/useOrcamentos";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Fornecedor {
   id: string;
@@ -45,16 +46,22 @@ export default function SolicitarFornecedores() {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
+  const { profile } = useAuth();
+
   useEffect(() => {
-    fetchFornecedores();
-  }, []);
+    if (profile) {
+      fetchFornecedores();
+    }
+  }, [profile]);
 
   async function fetchFornecedores() {
     try {
       setLoading(true);
+      // Busca fornecedores específicos da entidade OU globais (onde entidade_id é nulo)
       const { data, error } = await supabase
         .from('fornecedores')
-        .select('*');
+        .select('*')
+        .or(`entidade_id.eq.${profile?.entidade_id},entidade_id.is.null`);
 
       if (error) throw error;
       if (data) setFornecedores(data);

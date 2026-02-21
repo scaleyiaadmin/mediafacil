@@ -74,10 +74,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     useEffect(() => {
         // Check active sessions
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setUser(session?.user ?? null);
-            if (session?.user) {
-                fetchProfileAndEntidade(session.user);
+        supabase.auth.getSession().then(async ({ data: { session } }) => {
+            const currentUser = session?.user ?? null;
+            setUser(currentUser);
+            if (currentUser) {
+                await fetchProfileAndEntidade(currentUser);
             }
             setLoading(false);
         });
@@ -85,14 +86,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
             const currentUser = session?.user ?? null;
-            setUser(currentUser);
 
-            if (currentUser) {
-                await fetchProfileAndEntidade(currentUser);
-            } else {
+            // If user logged out or changed, reset profile first
+            if (!currentUser) {
                 setProfile(null);
                 setEntidade(null);
+                setUser(null);
+                setLoading(false);
+                return;
             }
+
+            // If user logged in or is still same, update profile
+            setUser(currentUser);
+            await fetchProfileAndEntidade(currentUser);
             setLoading(false);
         });
 

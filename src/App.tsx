@@ -28,6 +28,8 @@ import NotFound from "./pages/NotFound";
 
 import { AuthProvider } from "@/contexts/AuthContext";
 
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -40,27 +42,31 @@ const App = () => (
             <Sonner />
             <BrowserRouter>
               <Routes>
+                {/* Public Routes */}
                 <Route path="/login" element={<Login />} />
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/novo-orcamento" element={<NovoOrcamento />} />
-                <Route path="/buscar-itens" element={<BuscarItens />} />
-                <Route path="/buscar-itens-manual" element={<BuscarItensManual />} />
-                <Route path="/configurar-busca" element={<ConfigurarBusca />} />
-                <Route path="/resultado-busca" element={<ResultadoBusca />} />
-                <Route path="/solicitar-fornecedores" element={<SolicitarFornecedores />} />
-                <Route path="/orcamento/:id" element={<VisaoOrcamento />} />
-                <Route path="/relatorio-final" element={<RelatorioFinal />} />
-                <Route path="/orcamentos" element={<ListaOrcamentos />} />
-                <Route path="/fornecedores" element={<Fornecedores />} />
-                <Route path="/perfil-configuracoes" element={<PerfilConfiguracoes />} />
-                {/* Admin Routes */}
-                <Route path="/admin" element={<AdminDashboard />} />
-                <Route path="/admin/entidades" element={<AdminEntidades />} />
-                <Route path="/admin/usuarios" element={<AdminUsuarios />} />
-                <Route path="/admin/tabelas" element={<AdminTabelas />} />
-                <Route path="/admin/fornecedores" element={<AdminFornecedores />} />
-                {/* Proposta Digital do Fornecedor (acesso via link) */}
                 <Route path="/proposta/:token" element={<PropostaFornecedor />} />
+
+                {/* Protected Routes */}
+                <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                <Route path="/novo-orcamento" element={<ProtectedRoute><NovoOrcamento /></ProtectedRoute>} />
+                <Route path="/buscar-itens" element={<ProtectedRoute><BuscarItens /></ProtectedRoute>} />
+                <Route path="/buscar-itens-manual" element={<ProtectedRoute><BuscarItensManual /></ProtectedRoute>} />
+                <Route path="/configurar-busca" element={<ProtectedRoute><ConfigurarBusca /></ProtectedRoute>} />
+                <Route path="/resultado-busca" element={<ProtectedRoute><ResultadoBusca /></ProtectedRoute>} />
+                <Route path="/solicitar-fornecedores" element={<ProtectedRoute><SolicitarFornecedores /></ProtectedRoute>} />
+                <Route path="/orcamento/:id" element={<ProtectedRoute><VisaoOrcamento /></ProtectedRoute>} />
+                <Route path="/relatorio-final" element={<ProtectedRoute><RelatorioFinal /></ProtectedRoute>} />
+                <Route path="/orcamentos" element={<ProtectedRoute><ListaOrcamentos /></ProtectedRoute>} />
+                <Route path="/fornecedores" element={<ProtectedRoute><Fornecedores /></ProtectedRoute>} />
+                <Route path="/perfil-configuracoes" element={<ProtectedRoute><PerfilConfiguracoes /></ProtectedRoute>} />
+
+                {/* Admin Routes */}
+                <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+                <Route path="/admin/entidades" element={<ProtectedRoute><AdminEntidades /></ProtectedRoute>} />
+                <Route path="/admin/usuarios" element={<ProtectedRoute><AdminUsuarios /></ProtectedRoute>} />
+                <Route path="/admin/tabelas" element={<ProtectedRoute><AdminTabelas /></ProtectedRoute>} />
+                <Route path="/admin/fornecedores" element={<ProtectedRoute><AdminFornecedores /></ProtectedRoute>} />
+
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>

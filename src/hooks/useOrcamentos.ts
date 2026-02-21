@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { toast } from "sonner";
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface Orcamento {
     id: string;
@@ -16,17 +17,21 @@ export function useOrcamentos() {
     const [orcamentos, setOrcamentos] = useState<Orcamento[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const { user, profile, entidade } = useAuth();
 
-    useEffect(() => {
-        fetchOrcamentos();
-    }, []);
+    const fetchOrcamentos = useCallback(async () => {
+        if (!user || !profile?.entidade_id) {
+            setOrcamentos([]);
+            setLoading(false);
+            return;
+        }
 
-    async function fetchOrcamentos() {
         try {
             setLoading(true);
             const { data, error } = await supabase
                 .from('orcamentos')
                 .select('*')
+                .eq('entidade_id', profile.entidade_id)
                 .order('created_at', { ascending: false });
 
             if (error) {
@@ -41,15 +46,20 @@ export function useOrcamentos() {
                     dataFinalizacao: item.data_finalizacao ? new Date(item.data_finalizacao).toLocaleDateString('pt-BR') : undefined,
                     status: item.status,
                     linksEnviados: item.links_enviados,
-                    orcamentosRecebidos: item.orcamentos_recebidos
+                    orcamentosRecebidos: item.orcamentos_rece_bidos
                 })));
             }
         } catch (err: any) {
+            console.error('Error fetching orcamentos:', err);
             setError(err.message);
         } finally {
             setLoading(false);
         }
-    }
+    }, [user, profile?.entidade_id]);
+
+    useEffect(() => {
+        fetchOrcamentos();
+    }, [fetchOrcamentos]);
 
     const deleteOrcamento = async (id: string) => {
         try {
@@ -75,49 +85,13 @@ export function useOrcamentos() {
         status: "draft" | "waiting_suppliers" | "completed" = "draft"
     ) => {
         try {
-            // 1. Get current logged user email
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user?.email) throw new Error("Usuário não autenticado.");
+            if (!user) throw new Error("Usuário não autenticado.");
+            if (!profile?.entidade_id) throw new Error("Aguardando carregamento do perfil...");
 
-            // 2. Fetch or create user in public.usuarios to get entidade_id
-            let entidadeId = user.user_metadata?.entidade_id;
-            let usuarioId = user.id;
+            const entidadeId = profile.entidade_id;
+            const usuarioId = user.id;
 
-            // Try to find in public.usuarios
-            const { data: publicUser } = await supabase
-                .from('usuarios')
-                .select('id, entidade_id')
-                .eq('email', user.email)
-                .single();
-
-            if (publicUser) {
-                // If found, use this data
-                if (publicUser.entidade_id) entidadeId = publicUser.entidade_id;
-                // We might want to use the public.usuarios ID or auth.users ID. 
-                // The schema references auth.users usually, but let's check. 
-                // The schema says: usuario_id uuid (no FK constraint to auth.users in the snippet I saw, but usually good to link).
-                // Actually the schema has: 
-                // usuario_id uuid (in insert example it uses v_usuario_id from auth.users OR public.usuarios).
-                // Let's stick to auth.users.id for now as it's the standard for RLS if configured.
-                // However, the error says "entidade_id" is null.
-            }
-
-            // If still no entidade_id, fetch the first available entity (Correction for demo/dev mode)
-            if (!entidadeId) {
-                const { data: entity } = await supabase
-                    .from('entidades')
-                    .select('id')
-                    .limit(1)
-                    .single();
-
-                if (entity) {
-                    entidadeId = entity.id;
-                } else {
-                    throw new Error("Nenhuma entidade cadastrada no sistema. Contate o administrador.");
-                }
-            }
-
-            // 3. Insert Orcamento
+            // 1. Insert Orcamento
             const { data: orcamento, error: orcamentoError } = await supabase
                 .from('orcamentos')
                 .insert({
@@ -127,14 +101,14 @@ export function useOrcamentos() {
                     usuario_id: usuarioId, // Auth ID
                     data_solicitacao: new Date().toISOString(),
                     links_enviados: fornecedores.length,
-                    orcamentos_recebidos: 0
+                    orcamentos_rece_bidos: 0
                 })
                 .select()
                 .single();
 
             if (orcamentoError) throw orcamentoError;
 
-            // 4. Insert Itens
+            // 2. Insert Itens
             if (itens.length > 0) {
                 const itensToInsert = itens.map(item => ({
                     orcamento_id: orcamento.id,
@@ -152,7 +126,7 @@ export function useOrcamentos() {
                 if (itensError) throw itensError;
             }
 
-            // 5. Insert Fornecedores Relations
+            // 3. Insert Fornecedores Relations
             if (fornecedores.length > 0) {
                 const fornecedoresToInsert = fornecedores.map(f => ({
                     orcamento_id: orcamento.id,

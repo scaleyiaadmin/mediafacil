@@ -1,16 +1,22 @@
 import { Link, useParams, useNavigate } from "react-router-dom";
-import { FileText, Database, Users, CheckCircle, Clock, ArrowRight, Edit, ArrowLeft, AlertCircle, RefreshCw, Package, Calendar, CalendarClock } from "lucide-react";
+import {
+  FileText, Database, Users, CheckCircle, Clock,
+  ArrowRight, Edit, ArrowLeft, AlertCircle,
+  RefreshCw, Package, Calendar, CalendarClock, Loader2
+} from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { PasswordConfirmDialog } from "@/components/PasswordConfirmDialog";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 type OrcamentoStatus = "waiting_suppliers" | "completed" | "draft" | "deadline_expired";
 
-// Mock data for different budgets
-const orcamentosData: Record<string, {
+interface OrcamentoDetalhe {
   id: string;
   nome: string;
   dataCriacao: string;
@@ -22,81 +28,90 @@ const orcamentosData: Record<string, {
   solicitacaoFornecedores: boolean;
   respostasRecebidas: number;
   totalSolicitacoes: number;
-}> = {
-  "1": {
-    id: "1",
-    nome: "Material de escritório - Secretaria de Educação",
-    dataCriacao: "10/01/2026",
-    dataFinalizacao: "11/01/2026",
-    status: "completed",
-    itens: [
-      { id: "1", nome: "Caneta esferográfica azul", descricao: "Ponta fina 0.7mm", quantidade: 100, unidade: "UN" },
-      { id: "2", nome: "Papel A4 500 folhas", descricao: "Sulfite branco 75g/m²", quantidade: 50, unidade: "PCT" },
-      { id: "3", nome: "Grampeador de mesa", descricao: "Capacidade 25 folhas", quantidade: 10, unidade: "UN" },
-      { id: "4", nome: "Clips niquelado", descricao: "Tamanho 2/0", quantidade: 500, unidade: "CX" },
-      { id: "5", nome: "Borracha branca", descricao: "Macia para lápis", quantidade: 200, unidade: "UN" },
-      { id: "6", nome: "Lápis grafite", descricao: "Nº 2 HB", quantidade: 300, unidade: "UN" },
-      { id: "7", nome: "Apontador com depósito", quantidade: 50, unidade: "UN" },
-      { id: "8", nome: "Régua 30cm", descricao: "Transparente", quantidade: 80, unidade: "UN" },
-      { id: "9", nome: "Tesoura escolar", descricao: "Ponta arredondada", quantidade: 40, unidade: "UN" },
-      { id: "10", nome: "Cola branca 90g", quantidade: 120, unidade: "UN" },
-    ],
-    fontes: ["PNCP", "BPS", "Painel de Preços", "NFe"],
-    solicitacaoFornecedores: true,
-    respostasRecebidas: 5,
-    totalSolicitacoes: 8,
-  },
-  "2": {
-    id: "2",
-    nome: "Equipamentos de informática - TI",
-    dataCriacao: "09/01/2026",
-    dataLimite: "23/01/2026",
-    status: "waiting_suppliers",
-    itens: [
-      { id: "1", nome: "Monitor LED 24 polegadas", descricao: "Full HD 1920x1080, entrada HDMI", quantidade: 20, unidade: "UN" },
-      { id: "2", nome: "Teclado USB ABNT2", descricao: "Layout brasileiro com Ç", quantidade: 30, unidade: "UN" },
-      { id: "3", nome: "Mouse óptico USB", descricao: "1000 DPI, ergonômico", quantidade: 30, unidade: "UN" },
-      { id: "4", nome: "Webcam HD 720p", descricao: "Com microfone integrado", quantidade: 15, unidade: "UN" },
-      { id: "5", nome: "Headset com microfone", descricao: "USB, cancelamento de ruído", quantidade: 15, unidade: "UN" },
-    ],
-    fontes: ["PNCP", "Painel de Preços"],
-    solicitacaoFornecedores: true,
-    respostasRecebidas: 3,
-    totalSolicitacoes: 12,
-  },
-  "4": {
-    id: "4",
-    nome: "Material de limpeza - Prefeitura",
-    dataCriacao: "07/01/2026",
-    dataLimite: "21/01/2026",
-    status: "deadline_expired",
-    itens: [
-      { id: "1", nome: "Detergente 500ml", descricao: "Neutro, biodegradável", quantidade: 100, unidade: "UN" },
-      { id: "2", nome: "Desinfetante 2L", descricao: "Lavanda ou pinho", quantidade: 50, unidade: "UN" },
-      { id: "3", nome: "Papel higiênico", descricao: "Folha dupla, 30m", quantidade: 200, unidade: "FD" },
-      { id: "4", nome: "Sabonete líquido 1L", descricao: "Neutro, refil", quantidade: 60, unidade: "UN" },
-      { id: "5", nome: "Álcool 70% 1L", quantidade: 80, unidade: "UN" },
-      { id: "6", nome: "Luvas de látex", descricao: "Tamanho M", quantidade: 100, unidade: "PAR" },
-    ],
-    fontes: ["PNCP", "BPS", "NFe"],
-    solicitacaoFornecedores: true,
-    respostasRecebidas: 2,
-    totalSolicitacoes: 6,
-  },
-};
+}
 
 export default function VisaoOrcamento() {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
-  
-  // Get budget data or use default
-  const orcamentoData = orcamentosData[id || "1"] || orcamentosData["1"];
-  
-  const isDraft = orcamentoData.status === "draft";
-  const isCompleted = orcamentoData.status === "completed";
-  const isDeadlineExpired = orcamentoData.status === "deadline_expired";
-  const canFinalize = orcamentoData.status === "waiting_suppliers" || isDeadlineExpired;
+  const [loading, setLoading] = useState(true);
+  const [orcamento, setOrcamento] = useState<OrcamentoDetalhe | null>(null);
+
+  useEffect(() => {
+    if (profile && id) {
+      fetchOrcamento();
+    }
+  }, [id, profile]);
+
+  async function fetchOrcamento() {
+    if (!id || !profile) return;
+
+    try {
+      setLoading(true);
+      // 1. Fetch Orcamento
+      const { data: orc, error: orcError } = await supabase
+        .from('orcamentos')
+        .select('*')
+        .eq('id', id)
+        .eq('entidade_id', profile.entidade_id)
+        .single();
+
+      if (orcError) throw orcError;
+
+      // 2. Fetch Itens
+      const { data: items, error: itemsError } = await supabase
+        .from('orcamento_itens')
+        .select('*')
+        .eq('orcamento_id', id);
+
+      if (itemsError) throw itemsError;
+
+      // 3. Fetch fornecedores count
+      const { count: totalSolicitacoes } = await supabase
+        .from('orcamento_fornecedores')
+        .select('*', { count: 'exact', head: true })
+        .eq('orcamento_id', id);
+
+      const { count: respostasRecebidas } = await supabase
+        .from('orcamento_fornecedores')
+        .select('*', { count: 'exact', head: true })
+        .eq('orcamento_id', id)
+        .eq('status', 'replied');
+
+      setOrcamento({
+        id: orc.id,
+        nome: orc.nome,
+        dataCriacao: new Date(orc.data_solicitacao).toLocaleDateString('pt-BR'),
+        dataFinalizacao: orc.data_finalizacao ? new Date(orc.data_finalizacao).toLocaleDateString('pt-BR') : undefined,
+        dataLimite: orc.data_limite ? new Date(orc.data_limite).toLocaleDateString('pt-BR') : undefined,
+        status: orc.status as OrcamentoStatus,
+        itens: (items || []).map(i => ({
+          id: i.id,
+          nome: i.nome,
+          descricao: i.descricao,
+          quantidade: i.quantidade,
+          unidade: i.unidade || 'UN'
+        })),
+        fontes: ["PNCP"],
+        solicitacaoFornecedores: (totalSolicitacoes || 0) > 0,
+        respostasRecebidas: respostasRecebidas || 0,
+        totalSolicitacoes: totalSolicitacoes || 0
+      });
+
+    } catch (error: any) {
+      console.error("Erro ao carregar orçamento:", error);
+      toast.error("Orçamento não encontrado ou acesso negado.");
+      navigate("/orcamentos");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const isDraft = orcamento?.status === "draft";
+  const isCompleted = orcamento?.status === "completed";
+  const isDeadlineExpired = orcamento?.status === "deadline_expired";
+  const canFinalize = orcamento?.status === "waiting_suppliers" || isDeadlineExpired;
 
   const handleFinalizeClick = () => {
     setShowPasswordDialog(true);
@@ -104,15 +119,31 @@ export default function VisaoOrcamento() {
 
   const handlePasswordConfirm = () => {
     setShowPasswordDialog(false);
-    navigate("/relatorio-final");
+    navigate("/relatorio-final", {
+      state: {
+        itens: orcamento?.itens,
+        nomeOrcamento: orcamento?.nome,
+        entidade: profile?.entidade_id
+      }
+    });
   };
 
-  // If completed, redirect to final report
+  if (loading) {
+    return (
+      <MainLayout title="Carregando Orçamento" subtitle="...">
+        <div className="flex h-[400px] items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (!orcamento) return null;
+
   if (isCompleted) {
     return (
-      <MainLayout title="Relatório Final" subtitle={orcamentoData.nome}>
+      <MainLayout title="Relatório Final" subtitle={orcamento.nome}>
         <div className="mx-auto max-w-4xl space-y-6">
-          {/* Back button */}
           <Link to="/orcamentos">
             <Button variant="ghost" className="gap-2">
               <ArrowLeft className="h-4 w-4" />
@@ -120,25 +151,23 @@ export default function VisaoOrcamento() {
             </Button>
           </Link>
 
-          {/* Header com status */}
           <div className="flex items-center justify-between rounded-lg border border-border bg-card p-6">
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <h2 className="text-xl font-semibold text-foreground">{orcamentoData.nome}</h2>
-                <StatusBadge status={orcamentoData.status} />
+                <h2 className="text-xl font-semibold text-foreground">{orcamento.nome}</h2>
+                <StatusBadge status={orcamento.status} />
               </div>
               <p className="text-sm text-muted-foreground">
-                Finalizado em {orcamentoData.dataFinalizacao}
+                Finalizado em {orcamento.dataFinalizacao}
               </p>
             </div>
           </div>
 
-          {/* Redirect message */}
           <div className="text-center py-8">
             <CheckCircle className="h-16 w-16 text-success mx-auto mb-4" />
             <h3 className="text-lg font-semibold mb-2">Orçamento Finalizado</h3>
             <p className="text-muted-foreground mb-6">Este orçamento já foi finalizado. Acesse o relatório completo abaixo.</p>
-            <Link to="/relatorio-final">
+            <Link to="/relatorio-final" state={{ items: orcamento.itens, nomeOrcamento: orcamento.nome }}>
               <Button size="lg" className="gap-2">
                 <FileText className="h-4 w-4" />
                 Ver Relatório Final
@@ -151,9 +180,8 @@ export default function VisaoOrcamento() {
   }
 
   return (
-    <MainLayout title="Visão do Orçamento" subtitle={orcamentoData.nome}>
+    <MainLayout title="Visão do Orçamento" subtitle={orcamento.nome}>
       <div className="mx-auto max-w-5xl space-y-6">
-        {/* Back button */}
         <Link to="/orcamentos">
           <Button variant="ghost" className="gap-2">
             <ArrowLeft className="h-4 w-4" />
@@ -161,24 +189,21 @@ export default function VisaoOrcamento() {
           </Button>
         </Link>
 
-        {/* ===== CARD SUPERIOR: Nome + Status + Datas ===== */}
-        <div className={`rounded-lg border-l-4 bg-card p-6 shadow-sm ${
-          isDeadlineExpired 
-            ? "border-l-destructive border border-destructive/20" 
-            : orcamentoData.status === "waiting_suppliers"
-              ? "border-l-info border border-info/20"
-              : orcamentoData.status === "draft"
-                ? "border-l-warning border border-warning/20"
-                : "border-l-success border border-success/20"
-        }`}>
+        <div className={`rounded-lg border-l-4 bg-card p-6 shadow-sm ${isDeadlineExpired
+          ? "border-l-destructive border border-destructive/20"
+          : orcamento.status === "waiting_suppliers"
+            ? "border-l-indigo-500/50 border border-indigo-500/10"
+            : orcamento.status === "draft"
+              ? "border-l-amber-500/50 border border-amber-500/10"
+              : "border-l-emerald-500/50 border border-emerald-500/10"
+          }`}>
           <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-            {/* Título e Status */}
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-3 flex-wrap">
-                <h2 className="text-xl font-bold text-foreground">{orcamentoData.nome}</h2>
-                <StatusBadge status={orcamentoData.status} className="text-sm px-4 py-1.5" />
+                <h2 className="text-xl font-bold text-foreground">{orcamento.nome}</h2>
+                <StatusBadge status={orcamento.status} className="text-sm px-4 py-1.5" />
               </div>
-              
+
               {isDeadlineExpired && (
                 <div className="flex items-center gap-2 text-destructive text-sm mb-3">
                   <AlertCircle className="h-4 w-4" />
@@ -187,31 +212,22 @@ export default function VisaoOrcamento() {
               )}
             </div>
 
-            {/* Datas */}
             <div className="flex flex-col gap-2 text-sm md:text-right md:min-w-[200px]">
               <div className="flex items-center gap-2 md:justify-end text-muted-foreground">
                 <Calendar className="h-4 w-4" />
-                <span>Criado em: <span className="font-medium text-foreground">{orcamentoData.dataCriacao}</span></span>
+                <span>Criado em: <span className="font-medium text-foreground">{orcamento.dataCriacao}</span></span>
               </div>
-              
-              {orcamentoData.dataLimite && (
+
+              {orcamento.dataLimite && (
                 <div className={`flex items-center gap-2 md:justify-end ${isDeadlineExpired ? "text-destructive" : "text-muted-foreground"}`}>
                   <CalendarClock className="h-4 w-4" />
-                  <span>Prazo limite: <span className={`font-medium ${isDeadlineExpired ? "text-destructive" : "text-foreground"}`}>{orcamentoData.dataLimite}</span></span>
-                </div>
-              )}
-              
-              {orcamentoData.dataFinalizacao && (
-                <div className="flex items-center gap-2 md:justify-end text-success">
-                  <CheckCircle className="h-4 w-4" />
-                  <span>Finalizado em: <span className="font-medium">{orcamentoData.dataFinalizacao}</span></span>
+                  <span>Prazo limite: <span className={`font-medium ${isDeadlineExpired ? "text-destructive" : "text-foreground"}`}>{orcamento.dataLimite}</span></span>
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* ===== CARD GRANDE CENTRAL: Itens Incluídos ===== */}
         <div className="rounded-lg border border-border bg-card shadow-sm">
           <div className="flex items-center gap-3 p-4 border-b border-border bg-muted/30">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
@@ -219,10 +235,10 @@ export default function VisaoOrcamento() {
             </div>
             <div>
               <h3 className="font-semibold text-foreground text-lg">Itens Incluídos</h3>
-              <p className="text-sm text-muted-foreground">{orcamentoData.itens.length} itens no orçamento</p>
+              <p className="text-sm text-muted-foreground">{orcamento.itens.length} itens no orçamento</p>
             </div>
           </div>
-          
+
           <ScrollArea className="h-[280px]">
             <div className="p-4">
               <table className="w-full">
@@ -234,7 +250,7 @@ export default function VisaoOrcamento() {
                   </tr>
                 </thead>
                 <tbody>
-                  {orcamentoData.itens.map((item, index) => (
+                  {orcamento.itens.map((item, index) => (
                     <tr key={item.id} className={`${index % 2 === 0 ? "bg-muted/20" : ""} hover:bg-muted/40 transition-colors`}>
                       <td className="py-3 px-3">
                         <div>
@@ -260,32 +276,26 @@ export default function VisaoOrcamento() {
           </ScrollArea>
         </div>
 
-        {/* ===== CARDS MENORES: Fontes, Respostas, Progresso ===== */}
         <div className="grid gap-4 md:grid-cols-3">
-          {/* Fontes utilizadas - Compacto */}
           <div className="rounded-lg border border-border bg-card p-4">
             <div className="flex items-center gap-2 mb-3">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-accent-foreground">
                 <Database className="h-4 w-4" />
               </div>
               <div>
-                <p className="font-semibold text-foreground text-sm">{orcamentoData.fontes.length} Fontes</p>
+                <p className="font-semibold text-foreground text-sm">{orcamento.fontes.length} Fontes</p>
                 <p className="text-xs text-muted-foreground">Bases consultadas</p>
               </div>
             </div>
             <div className="flex flex-wrap gap-1.5">
-              {orcamentoData.fontes.map((fonte) => (
-                <span
-                  key={fonte}
-                  className="px-2 py-0.5 text-xs rounded-md bg-accent text-accent-foreground"
-                >
+              {orcamento.fontes.map((fonte) => (
+                <span key={fonte} className="px-2 py-0.5 text-xs rounded-md bg-accent text-accent-foreground">
                   {fonte}
                 </span>
               ))}
             </div>
           </div>
 
-          {/* Respostas recebidas - Compacto */}
           <div className="rounded-lg border border-border bg-card p-4">
             <div className="flex items-center gap-2 mb-3">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-accent-foreground">
@@ -293,13 +303,13 @@ export default function VisaoOrcamento() {
               </div>
               <div>
                 <p className="font-semibold text-foreground text-sm">
-                  {orcamentoData.respostasRecebidas}/{orcamentoData.totalSolicitacoes} Respostas
+                  {orcamento.respostasRecebidas}/{orcamento.totalSolicitacoes} Respostas
                 </p>
                 <p className="text-xs text-muted-foreground">Links enviados</p>
               </div>
             </div>
-            {orcamentoData.solicitacaoFornecedores ? (
-              <div className="flex items-center gap-1.5 text-xs text-success">
+            {orcamento.solicitacaoFornecedores ? (
+              <div className="flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
                 <CheckCircle className="h-3.5 w-3.5" />
                 <span>Solicitações enviadas</span>
               </div>
@@ -311,14 +321,12 @@ export default function VisaoOrcamento() {
             )}
           </div>
 
-          {/* Progresso - Compacto */}
           <div className="rounded-lg border border-border bg-card p-4">
             <div className="flex items-center gap-2 mb-3">
-              <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${
-                isDeadlineExpired 
-                  ? "bg-destructive text-destructive-foreground" 
-                  : "bg-primary text-primary-foreground"
-              }`}>
+              <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${isDeadlineExpired
+                ? "bg-destructive text-destructive-foreground"
+                : "bg-primary text-primary-foreground"
+                }`}>
                 {isDeadlineExpired ? <AlertCircle className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
               </div>
               <div>
@@ -327,15 +335,15 @@ export default function VisaoOrcamento() {
               </div>
             </div>
             <div className="space-y-1.5 text-xs">
-              <div className="flex items-center gap-1.5 text-success">
+              <div className="flex items-center gap-1.5 text-emerald-600 font-medium">
                 <CheckCircle className="h-3 w-3" />
-                <span>{orcamentoData.itens.length} itens adicionados</span>
+                <span>{orcamento.itens.length} itens adicionados</span>
               </div>
-              <div className="flex items-center gap-1.5 text-success">
+              <div className="flex items-center gap-1.5 text-emerald-600 font-medium">
                 <CheckCircle className="h-3 w-3" />
-                <span>{orcamentoData.fontes.length} fontes consultadas</span>
+                <span>{orcamento.fontes.length} fontes consultadas</span>
               </div>
-              <div className={`flex items-center gap-1.5 ${isDeadlineExpired ? "text-destructive" : "text-info"}`}>
+              <div className={`flex items-center gap-1.5 ${isDeadlineExpired ? "text-destructive font-bold" : "text-blue-600 font-medium"}`}>
                 {isDeadlineExpired ? <AlertCircle className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
                 <span>{isDeadlineExpired ? "Prazo encerrado" : "Aguardando fornecedores"}</span>
               </div>
@@ -343,7 +351,6 @@ export default function VisaoOrcamento() {
           </div>
         </div>
 
-        {/* ===== AÇÕES ===== */}
         <div className="flex justify-center gap-4 pt-4 pb-6">
           {isDraft && (
             <Link to="/buscar-itens-manual">
@@ -353,7 +360,7 @@ export default function VisaoOrcamento() {
               </Button>
             </Link>
           )}
-          
+
           {isDeadlineExpired && (
             <Link to={`/solicitar-fornecedores?resend=${id}`}>
               <Button variant="outline" className="gap-2 border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground">
@@ -362,7 +369,7 @@ export default function VisaoOrcamento() {
               </Button>
             </Link>
           )}
-          
+
           {canFinalize && (
             <Button size="lg" className="gap-2" onClick={handleFinalizeClick}>
               Finalizar Orçamento
@@ -371,7 +378,6 @@ export default function VisaoOrcamento() {
           )}
         </div>
 
-        {/* Modal de confirmação com senha */}
         <PasswordConfirmDialog
           open={showPasswordDialog}
           onOpenChange={setShowPasswordDialog}

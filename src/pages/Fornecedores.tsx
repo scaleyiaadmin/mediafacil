@@ -34,6 +34,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Trash2, Edit2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Fornecedor {
   id: string;
@@ -86,56 +87,33 @@ export default function Fornecedores() {
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-  const [checkingAuth, setCheckingAuth] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [previewData, setPreviewData] = useState<any[]>([]);
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
-  // Auth check
+  const { profile, loading: authLoading } = useAuth();
+
+  // Auth check and initial fetch
   useEffect(() => {
-    async function checkAccess() {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          navigate("/");
-          return;
-        }
-
-        const { data: profile } = await supabase
-          .from('usuarios')
-          .select('tipo')
-          .eq('email', user.email)
-          .single();
-
-        if (profile?.tipo === 'super_admin') {
-          setIsSuperAdmin(true);
-          fetchFornecedores();
-        } else {
-          setCheckingAuth(false);
-        }
-      } catch (error) {
-        console.error("Auth check error:", error);
-        navigate("/");
-      } finally {
-        setCheckingAuth(false);
-      }
+    if (!authLoading && profile) {
+      fetchFornecedores();
     }
-    checkAccess();
-  }, []);
+  }, [authLoading, profile]);
 
   const fetchFornecedores = async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("fornecedores")
-      .select("*")
-      .order("created_at", { ascending: false });
+    if (!profile) return;
 
-    if (error) {
-      console.error("Erro ao buscar fornecedores:", error);
-      toast.error("Erro ao carregar fornecedores.");
-    } else {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("fornecedores")
+        .select("*")
+        .or(`entidade_id.eq.${profile.entidade_id},entidade_id.is.null`)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
       const mappedData: Fornecedor[] = (data || []).map((f: any) => ({
         id: f.id,
         cnpj: f.cnpj,
@@ -148,8 +126,12 @@ export default function Fornecedores() {
         segmentos: f.segmentos || [],
       }));
       setFornecedores(mappedData);
+    } catch (error) {
+      console.error("Erro ao buscar fornecedores:", error);
+      toast.error("Erro ao carregar fornecedores.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   // Form state
@@ -258,6 +240,7 @@ export default function Fornecedores() {
           email: formData.email,
           telefone: formData.telefone,
           segmentos: formData.segmentos,
+          entidade_id: profile?.entidade_id
         },
       ])
       .select();
@@ -330,6 +313,7 @@ export default function Fornecedores() {
           });
 
           if (supplier.cnpj && supplier.razao_social) {
+            supplier.entidade_id = profile?.entidade_id;
             suppliersToInsert.push(supplier);
           }
         }
@@ -442,7 +426,7 @@ export default function Fornecedores() {
     await originalHandleSubmit();
   };
 
-  if (checkingAuth) {
+  if (authLoading || loading) {
     return (
       <MainLayout title="Fornecedores" subtitle="Carregando...">
         <div className="flex h-[400px] items-center justify-center">
@@ -452,16 +436,16 @@ export default function Fornecedores() {
     );
   }
 
-  if (!isSuperAdmin) {
+  if (!profile) {
     return (
       <MainLayout title="Fornecedores" subtitle="Acesso restrito">
         <div className="flex flex-col items-center justify-center h-[400px] text-center space-y-4">
           <AlertCircle className="h-12 w-12 text-destructive" />
           <h2 className="text-xl font-bold">Acesso Negado</h2>
           <p className="text-muted-foreground max-w-md">
-            Apenas administradores do sistema (Super Admin) têm permissão para gerenciar a base global de fornecedores.
+            Você precisa estar logado para acessar esta página.
           </p>
-          <Button onClick={() => navigate("/")}>Voltar para o Dashboard</Button>
+          <Button onClick={() => navigate("/login")}>Ir para Login</Button>
         </div>
       </MainLayout>
     );
