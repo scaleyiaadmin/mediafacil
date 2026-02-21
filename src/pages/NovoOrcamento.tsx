@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Upload, PenLine, FileSpreadsheet, Search, Loader2, CheckCircle, ArrowRight, Tag, FileSearch, Database, Sparkles } from "lucide-react";
+import { Upload, PenLine, FileSpreadsheet, Search, Loader2, CheckCircle, ArrowRight, Tag, FileSearch, Database, Sparkles, Building2 } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import {
@@ -319,6 +319,31 @@ export default function NovoOrcamento() {
               <Button variant="outline" className="w-full gap-2" onClick={() => handleStartBudget("manual")}>
                 <Search className="h-4 w-4" />
                 Buscar Itens
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Opção Adicional: Consultar Fornecedores */}
+        <div className="pt-8 border-t">
+          <div className="group relative rounded-xl border-2 border-dashed border-border bg-muted/30 p-6 transition-all hover:border-primary/50 hover:bg-card hover:shadow-md max-w-lg mx-auto">
+            <div className="flex flex-col md:flex-row items-center gap-6">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary shrink-0">
+                <Building2 className="h-7 w-7" />
+              </div>
+
+              <div className="flex-1 text-center md:text-left">
+                <h3 className="text-lg font-semibold text-foreground">
+                  Banco de Fornecedores
+                </h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Consulte fornecedores cadastrados por região e segmento para solicitar cotações diretas.
+                </p>
+              </div>
+
+              <Button variant="ghost" className="gap-2 group-hover:text-primary shrink-0" onClick={() => navigate("/fornecedores")}>
+                Acessar Banco
+                <ArrowRight className="h-4 w-4" />
               </Button>
             </div>
           </div>
