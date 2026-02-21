@@ -56,8 +56,20 @@ export function useOrcamentos() {
     }, [user, profile?.entidade_id]);
 
     useEffect(() => {
+        // Busca inicial
         fetchOrcamentos();
-    }, [fetchOrcamentos]);
+
+        // Automação: Polling de 2 em 2 segundos conforme pedido pelo usuário
+        const intervalId = setInterval(() => {
+            // Só busca se o usuário estiver ativo e não estiver em loading inicial
+            if (user && profile?.entidade_id) {
+                console.log("[useOrcamentos] Polling automático de 2s...");
+                fetchOrcamentos();
+            }
+        }, 2000);
+
+        return () => clearInterval(intervalId);
+    }, [fetchOrcamentos, user, profile?.entidade_id]);
 
     const deleteOrcamento = async (id: string) => {
         try {

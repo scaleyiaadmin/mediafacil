@@ -111,6 +111,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 if (session && isMounted) {
                     console.log("AuthContext: [INIT] Sessão encontrada, carregando dados...");
                     await handleAuthChange(session);
+                } else if (isMounted && localStorage.getItem('mf_auth_active') === 'true') {
+                    // TENTATIVA AGRESSIVA: A flag existe mas o getSession falhou.
+                    // Isso pode acontecer se o token no storage estiver ligeiramente corrompido ou expirado,
+                    // mas o supabase.auth.getUser() pode tentar um refresh automático.
+                    console.warn("AuthContext: [INIT] Flag mf_auth_active presente mas sessão nula. Tentando recuperação agressiva...");
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (user && isMounted) {
+                        console.log("AuthContext: [INIT] Sessão recuperada com sucesso!");
+                        setUser(user);
+                        await fetchProfileAndEntidade(user);
+                    }
                 } else {
                     console.log("AuthContext: [INIT] Nenhuma sessão ativa.");
                 }
@@ -198,6 +209,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
 
             if (authenticatedUser) {
+                // SUCESSO: Marcar que o usuário DEVE estar logado
+                localStorage.setItem('mf_auth_active', 'true');
                 setUser(authenticatedUser);
                 await fetchProfileAndEntidade(authenticatedUser);
             }
@@ -209,6 +222,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const signOut = async () => {
         setLoading(true);
         try {
+            // LOGOUT MANUAL: Remover a intenção de estar logado
+            localStorage.removeItem('mf_auth_active');
             await supabase.auth.signOut();
             setUser(null);
             setProfile(null);
