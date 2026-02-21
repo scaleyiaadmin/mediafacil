@@ -100,39 +100,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
         };
 
-        // Initial session check
-        const initSession = async () => {
+        // Linear initialization
+        const initialize = async () => {
             try {
-                console.log("AuthContext: Iniciando recuperação de sessão...");
-                const { data: { session } } = await supabase.auth.getSession();
+                console.log("AuthContext: [INIT] Iniciando verificação de sessão...");
+                const { data: { session }, error } = await supabase.auth.getSession();
 
-                if (session) {
+                if (error) throw error;
+
+                if (session && isMounted) {
+                    console.log("AuthContext: [INIT] Sessão encontrada, carregando dados...");
                     await handleAuthChange(session);
                 } else {
-                    console.log("AuthContext: Nenhuma sessão ativa encontrada.");
+                    console.log("AuthContext: [INIT] Nenhuma sessão ativa.");
                 }
             } catch (err) {
-                console.error("AuthContext: Erro na inicialização:", err);
+                console.error("AuthContext: [INIT] Erro na inicialização:", err);
             } finally {
                 if (isMounted) {
-                    console.log("AuthContext: Inicialização concluída.");
+                    console.log("AuthContext: [INIT] Inicialização concluída.");
                     setLoading(false);
                 }
             }
         };
 
-        initSession();
+        initialize();
 
-        // Listen for auth changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-            console.log("AuthContext: Evento onAuthStateChange:", _event);
-
-            if (_event === 'SIGNED_IN' || _event === 'TOKEN_REFRESHED' || _event === 'USER_UPDATED') {
+        // Listener for future changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            console.log("AuthContext: [EVENT]", event);
+            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
                 await handleAuthChange(session);
-            } else if (_event === 'SIGNED_OUT') {
+            } else if (event === 'SIGNED_OUT') {
+                setUser(null);
                 setProfile(null);
                 setEntidade(null);
-                setUser(null);
                 setLoading(false);
             }
         });
