@@ -35,6 +35,11 @@ export default function Login() {
         try {
             await signIn(email, password);
             toast.success("Login realizado com sucesso!");
+
+            // Redirecionamento direto após o sucesso do signIn
+            const from = (location.state as any)?.from?.pathname || "/dashboard";
+            console.log(`Login: Sucesso no signIn. Redirecionando manualmente para ${from}`);
+            navigate(from, { replace: true });
         } catch (error: any) {
             console.error("Erro no login:", error);
             toast.error(error.message || "Erro inesperado ao fazer login");
