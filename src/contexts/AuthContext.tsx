@@ -57,12 +57,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setProfile(prof);
             console.log("AuthContext: Perfil carregado:", prof.nome, "Entidade ID:", prof.entidade_id);
 
-            // Sincronizar metadados se necessário
+            // Sincronizar metadados se necessário (importante para RLS)
             if (prof.entidade_id && supabaseUser.user_metadata?.entidade_id !== prof.entidade_id) {
-                console.log("AuthContext: Sincronizando metadados da entidade...");
-                await supabase.auth.updateUser({
+                console.log("AuthContext: Sincronizando metadados da entidade (user_metadata)...");
+                const { error: updateErr } = await supabase.auth.updateUser({
                     data: { entidade_id: prof.entidade_id }
                 });
+
+                if (updateErr) {
+                    console.error("AuthContext: Erro ao sincronizar metadados:", updateErr);
+                } else {
+                    console.log("AuthContext: Metadados sincronizados com sucesso.");
+                }
             }
 
             // 2. Fetch Entity Data
