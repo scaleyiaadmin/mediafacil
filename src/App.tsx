@@ -23,6 +23,8 @@ import AdminUsuarios from "./pages/admin/AdminUsuarios";
 import AdminTabelas from "./pages/admin/AdminTabelas";
 import AdminFornecedores from "./pages/admin/AdminFornecedores";
 import PropostaFornecedor from "./pages/PropostaFornecedor";
+import CestaPrecos from "./pages/CestaPrecos";
+import AtaRegistroPrecos from "./pages/AtaRegistroPrecos";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
@@ -55,6 +57,8 @@ const App = () => (
                 <Route path="/resultado-busca" element={<ProtectedRoute><ResultadoBusca /></ProtectedRoute>} />
                 <Route path="/solicitar-fornecedores" element={<ProtectedRoute><SolicitarFornecedores /></ProtectedRoute>} />
                 <Route path="/orcamento/:id" element={<ProtectedRoute><VisaoOrcamento /></ProtectedRoute>} />
+                <Route path="/cesta-precos" element={<ProtectedRoute><CestaPrecos /></ProtectedRoute>} />
+                <Route path="/ata-registro-precos" element={<ProtectedRoute><AtaRegistroPrecos /></ProtectedRoute>} />
                 <Route path="/relatorio-final" element={<ProtectedRoute><RelatorioFinal /></ProtectedRoute>} />
                 <Route path="/orcamentos" element={<ProtectedRoute><ListaOrcamentos /></ProtectedRoute>} />
                 <Route path="/fornecedores" element={<ProtectedRoute><Fornecedores /></ProtectedRoute>} />

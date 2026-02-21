@@ -72,17 +72,12 @@ export default function ResultadoBusca() {
         if (orc) idFinal = orc.id;
       }
 
-      // Navegar para o relatório final passando todos os dados necessários
-      navigate("/relatorio-final", {
+      // Navegar para a Cesta de Preços passando os dados
+      navigate("/cesta-precos", {
         state: {
           orcamentoId: idFinal,
-          itens: itensSelecionados,  // dados brutos com preco real
+          itensSelecionados,
           nomeOrcamento,
-          entidade: entidade?.nome || "Prefeitura não identificada",
-          responsavel: profile?.nome || "Usuário não identificado",
-          media: mediaUnitaria,
-          mediana: medianaUnitaria,
-          valorTotal
         }
       });
     } catch (err: any) {
@@ -135,7 +130,7 @@ export default function ResultadoBusca() {
             >
               {isFinalizing
                 ? <><Loader2 className="h-4 w-4 animate-spin" /> Salvando...</>
-                : <><ShoppingBag className="h-4 w-4" /> Finalizar Orçamento</>
+                : <><ShoppingBag className="h-4 w-4" /> Montar Cesta de Preços</>
               }
             </Button>
           </div>
