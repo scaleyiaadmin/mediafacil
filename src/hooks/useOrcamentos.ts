@@ -84,10 +84,12 @@ export function useOrcamentos() {
     ) => {
         try {
             if (!user) throw new Error("Usuário não autenticado.");
-            if (!profile?.entidade_id) throw new Error("Aguardando carregamento do perfil...");
+            if (!profile?.entidade_id) throw new Error("Entidade não identificada. Faça login novamente.");
 
             const entidadeId = profile.entidade_id;
-            const usuarioId = profile.id;
+            const usuarioId = user.id; // CORRETO: usar o ID do Auth, não do profile
+
+            console.log("[createOrcamento] Salvando:", nome, "| entidade:", entidadeId, "| usuario:", usuarioId, "| itens:", itens.length);
 
             // 1. Criar o orçamento principal
             const { data: orcamento, error: orcamentoError } = await supabase
@@ -104,7 +106,11 @@ export function useOrcamentos() {
                 .select()
                 .single();
 
-            if (orcamentoError) throw orcamentoError;
+            if (orcamentoError) {
+                console.error("[createOrcamento] Erro ao criar orçamento:", orcamentoError);
+                throw orcamentoError;
+            }
+            console.log("[createOrcamento] Orçamento criado com ID:", orcamento.id);
 
             // 2. Salvar os itens (aceita múltiplos formatos)
             if (itens.length > 0) {
@@ -118,11 +124,16 @@ export function useOrcamentos() {
                     valor_referencia: item.valor_referencia ?? item.media ?? item.preco ?? item.valor ?? 0
                 }));
 
+                console.log("[createOrcamento] Inserindo", itensToInsert.length, "itens...");
                 const { error: itensError } = await supabase
                     .from('orcamento_itens')
                     .insert(itensToInsert);
 
-                if (itensError) throw itensError;
+                if (itensError) {
+                    console.error("[createOrcamento] Erro ao inserir itens:", itensError);
+                    throw itensError;
+                }
+                console.log("[createOrcamento] Itens salvos com sucesso!");
             }
 
             // 3. Salvar vínculos de fornecedores
