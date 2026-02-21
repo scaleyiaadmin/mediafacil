@@ -2,11 +2,10 @@ import { useState, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
     ShoppingBasket, ArrowLeft, Loader2,
-    TrendingDown, BarChart3
+    TrendingDown, BarChart3, Calculator
 } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { PNCPItem } from "@/lib/pncp";
 import { useAuth } from "@/contexts/AuthContext";
