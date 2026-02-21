@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Link, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { Search, Plus, Minus, ArrowRight, ArrowLeft, Save, Database, MapPin, Loader2, Globe } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
@@ -7,8 +7,10 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { ufs } from "@/data/regioes";
 import { cn } from "@/lib/utils";
-import { searchPNCPItems, PNCPItem } from "@/lib/pncp";
+import { searchPNCPItems } from "@/lib/pncp";
 import { searchReferences } from "@/lib/referencias";
+import { useOrcamentos } from "@/hooks/useOrcamentos";
+import { supabase } from "@/lib/supabase";
 
 interface ItemDisponivel {
   id: string;
@@ -40,16 +42,58 @@ const itensBanco: ItemDisponivel[] = [];
 export default function BuscarItensManual() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const editId = searchParams.get("edit"); // ID do orçamento sendo editado
+  const { createOrcamento } = useOrcamentos();
+
   const nomeOrcamento = location.state?.nomeOrcamento || "Novo Orçamento";
 
+  const [orcamentoId, setOrcamentoId] = useState<string | null>(editId); // ID do rascunho ativo
+  const [orcamentoNome, setOrcamentoNome] = useState(nomeOrcamento);
   const [searchTerm, setSearchTerm] = useState("");
   const [itensSelecionados, setItensSelecionados] = useState<ItemSelecionado[]>([]);
   const [itensOnline, setItensOnline] = useState<ItemDisponivel[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Filtros
   const [fontesSelecionadas, setFontesSelecionadas] = useState<string[]>([]);
   const [ufsSelecionadas, setUfsSelecionadas] = useState<string[]>([]);
+
+  // Ao abrir com ?edit=ID, carregar itens existentes do banco
+  useEffect(() => {
+    if (!editId) return;
+    const loadItems = async () => {
+      try {
+        const { data: orc } = await supabase
+          .from('orcamentos')
+          .select('nome')
+          .eq('id', editId)
+          .single();
+        if (orc) setOrcamentoNome(orc.nome);
+
+        const { data: itens } = await supabase
+          .from('orcamento_itens')
+          .select('*')
+          .eq('orcamento_id', editId);
+
+        if (itens && itens.length > 0) {
+          setItensSelecionados(itens.map(i => ({
+            id: i.id,
+            nome: i.nome,
+            unidade: i.unidade || 'UN',
+            fonte: i.descricao || 'Banco de Dados',
+            preco: i.valor_referencia || 0,
+            quantidade: i.quantidade || 1,
+          })));
+          toast.info(`${itens.length} itens carregados do rascunho.`);
+        }
+      } catch (err) {
+        console.error("Erro ao carregar rascunho:", err);
+      }
+    };
+    loadItems();
+  }, [editId]);
 
   // Busca Online e Referências (Debounced)
   useEffect(() => {
@@ -152,34 +196,88 @@ export default function BuscarItensManual() {
     );
   };
 
-  const handleSalvarRascunho = () => {
+  // Salvar rascunho (cria novo ou atualiza existente)
+  const handleSalvarRascunho = async () => {
     if (itensSelecionados.length === 0) {
       toast.error("Adicione ao menos um item para salvar.");
       return;
     }
-    toast.success("Rascunho salvo com sucesso!");
-    navigate("/");
+    setIsSaving(true);
+    try {
+      if (orcamentoId) {
+        // Atualizar rascunho existente
+        await supabase.from('orcamento_itens').delete().eq('orcamento_id', orcamentoId);
+        await supabase.from('orcamento_itens').insert(
+          itensSelecionados.map(i => ({
+            orcamento_id: orcamentoId,
+            nome: i.nome,
+            descricao: i.fonte,
+            unidade: i.unidade,
+            quantidade: i.quantidade,
+            valor_referencia: i.preco
+          }))
+        );
+        toast.success("Rascunho atualizado com sucesso!");
+      } else {
+        // Criar novo rascunho
+        const orcamento = await createOrcamento(orcamentoNome, itensSelecionados, [], 'draft');
+        if (orcamento) setOrcamentoId(orcamento.id);
+      }
+      navigate("/orcamentos");
+    } catch (err: any) {
+      toast.error("Erro ao salvar: " + err.message);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleContinuar = () => {
+  // Continuar para o relatório (salva rascunho no banco antes de navegar)
+  const handleContinuar = async () => {
     if (itensSelecionados.length === 0) {
       toast.error("Adicione ao menos um item para continuar.");
       return;
     }
-    // Se nenhuma fonte estiver selecionada, podemos avisar ou considerar todas. 
-    // O usuário disse que escolheria na hora, então obrigar a escolher parece correto.
     if (fontesSelecionadas.length === 0) {
       toast.error("Selecione ao menos uma fonte de pesquisa.");
       return;
     }
-    // Navegar para o resultado/relatório
-    navigate("/resultado-busca", {
-      state: {
-        itensSelecionados,
-        nomeOrcamento,
-        fontesSelecionadas // Passando também as fontes para o próximo passo
+    setIsSaving(true);
+    try {
+      let idParaUsar = orcamentoId;
+
+      if (idParaUsar) {
+        // Atualizar itens do rascunho existente antes de continuar
+        await supabase.from('orcamento_itens').delete().eq('orcamento_id', idParaUsar);
+        await supabase.from('orcamento_itens').insert(
+          itensSelecionados.map(i => ({
+            orcamento_id: idParaUsar,
+            nome: i.nome,
+            descricao: i.fonte,
+            unidade: i.unidade,
+            quantidade: i.quantidade,
+            valor_referencia: i.preco
+          }))
+        );
+      } else {
+        // Criar rascunho novo para persistir os itens
+        const orcamento = await createOrcamento(orcamentoNome, itensSelecionados, [], 'draft');
+        if (orcamento) { idParaUsar = orcamento.id; setOrcamentoId(orcamento.id); }
       }
-    });
+
+      // Navegar para resultado passando dados e o ID do rascunho
+      navigate("/resultado-busca", {
+        state: {
+          itensSelecionados,
+          nomeOrcamento: orcamentoNome,
+          orcamentoId: idParaUsar,
+          fontesSelecionadas
+        }
+      });
+    } catch (err: any) {
+      toast.error("Erro ao salvar e continuar: " + err.message);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -435,13 +533,13 @@ export default function BuscarItensManual() {
               )}
             </div>
             <div className="flex items-center gap-3">
-              <Button variant="outline" className="gap-2" onClick={handleSalvarRascunho}>
-                <Save className="h-4 w-4" />
+              <Button variant="outline" className="gap-2" onClick={handleSalvarRascunho} disabled={isSaving}>
+                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 Salvar Rascunho
               </Button>
-              <Button className="gap-2" onClick={handleContinuar}>
-                Gerar Relatório
-                <ArrowRight className="h-4 w-4" />
+              <Button className="gap-2" onClick={handleContinuar} disabled={isSaving}>
+                {isSaving ? "Salvando..." : "Gerar Relatório"}
+                {!isSaving && <ArrowRight className="h-4 w-4" />}
               </Button>
             </div>
           </div>

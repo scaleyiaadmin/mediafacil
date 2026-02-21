@@ -56,3 +56,47 @@ UPDATE public.usuarios u
 SET id = a.id
 FROM auth.users a
 WHERE u.email = a.email;
+
+-- 7. POLÍTICA DE ITENS DO ORÇAMENTO (acesso via orçamento da entidade)
+ALTER TABLE public.orcamento_itens ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Enable all access for all users" ON public.orcamento_itens;
+DROP POLICY IF EXISTS "Acesso Itens por Entidade" ON public.orcamento_itens;
+CREATE POLICY "Acesso Itens por Entidade" ON public.orcamento_itens
+    FOR ALL USING (
+        orcamento_id IN (
+            SELECT id FROM public.orcamentos
+            WHERE entidade_id IN (
+                SELECT entidade_id FROM public.usuarios WHERE email = auth.jwt() ->> 'email'
+            )
+        )
+    )
+    WITH CHECK (
+        orcamento_id IN (
+            SELECT id FROM public.orcamentos
+            WHERE entidade_id IN (
+                SELECT entidade_id FROM public.usuarios WHERE email = auth.jwt() ->> 'email'
+            )
+        )
+    );
+
+-- 8. POLÍTICA DE FORNECEDORES DO ORÇAMENTO
+ALTER TABLE public.orcamento_fornecedores ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Enable all access for all users" ON public.orcamento_fornecedores;
+DROP POLICY IF EXISTS "Acesso Fornecedores do Orcamento" ON public.orcamento_fornecedores;
+CREATE POLICY "Acesso Fornecedores do Orcamento" ON public.orcamento_fornecedores
+    FOR ALL USING (
+        orcamento_id IN (
+            SELECT id FROM public.orcamentos
+            WHERE entidade_id IN (
+                SELECT entidade_id FROM public.usuarios WHERE email = auth.jwt() ->> 'email'
+            )
+        )
+    )
+    WITH CHECK (
+        orcamento_id IN (
+            SELECT id FROM public.orcamentos
+            WHERE entidade_id IN (
+                SELECT entidade_id FROM public.usuarios WHERE email = auth.jwt() ->> 'email'
+            )
+        )
+    );
