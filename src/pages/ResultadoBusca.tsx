@@ -3,6 +3,7 @@ import { FileCheck, Building2, Calendar, MapPin, ArrowLeft, Sparkles, ShoppingBa
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { PNCPItem } from "@/lib/pncp";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface ItemSelecionado extends PNCPItem {
   quantidade: number;
