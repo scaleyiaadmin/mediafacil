@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-ShoppingBasket, ArrowLeft, Loader2,
+import {
+    ShoppingBasket, ArrowLeft, Loader2,
     TrendingDown, BarChart3
 } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
