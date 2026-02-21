@@ -266,7 +266,7 @@ export default function SelecaoItensImportados() {
                                             </Button>
                                         </div>
 
-                                        <ScrollArea className="max-h-[550px] overflow-y-auto custom-scrollbar">
+                                        <div className="max-h-[350px] overflow-y-auto custom-scrollbar border-b">
                                             <div className="divide-y">
                                                 {group.results.length === 0 ? (
                                                     <div className="p-8 text-center text-muted-foreground italic space-y-2">
@@ -286,6 +286,9 @@ export default function SelecaoItensImportados() {
                                                         } else if (result.fonte.includes("SINAPI")) {
                                                             badgeColor = "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-100";
                                                             badgeDot = "bg-green-500";
+                                                        } else if (result.fonte.includes("PNCP (Local)")) {
+                                                            badgeColor = "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-100";
+                                                            badgeDot = "bg-blue-500";
                                                         }
 
                                                         return (
@@ -331,7 +334,7 @@ export default function SelecaoItensImportados() {
                                                     })
                                                 )}
                                             </div>
-                                        </ScrollArea>
+                                        </div>
                                     </div>
                                 )}
                             </div>
