@@ -25,6 +25,7 @@ import AdminFornecedores from "./pages/admin/AdminFornecedores";
 import PropostaFornecedor from "./pages/PropostaFornecedor";
 import CestaPrecos from "./pages/CestaPrecos";
 import AtaRegistroPrecos from "./pages/AtaRegistroPrecos";
+import SelecaoItensImportados from "./pages/SelecaoItensImportados";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
@@ -55,6 +56,7 @@ const App = () => (
                 <Route path="/buscar-itens" element={<ProtectedRoute><BuscarItens /></ProtectedRoute>} />
                 <Route path="/buscar-itens-manual" element={<ProtectedRoute><BuscarItensManual /></ProtectedRoute>} />
                 <Route path="/configurar-busca" element={<ProtectedRoute><ConfigurarBusca /></ProtectedRoute>} />
+                <Route path="/selecao-itens-importados" element={<ProtectedRoute><SelecaoItensImportados /></ProtectedRoute>} />
                 <Route path="/resultado-busca" element={<ProtectedRoute><ResultadoBusca /></ProtectedRoute>} />
                 <Route path="/solicitar-fornecedores" element={<ProtectedRoute><SolicitarFornecedores /></ProtectedRoute>} />
                 <Route path="/orcamento/:id" element={<ProtectedRoute><VisaoOrcamento /></ProtectedRoute>} />

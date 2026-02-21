@@ -49,7 +49,6 @@ export default function NovoOrcamento() {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
   const [progress, setProgress] = useState(0);
-  const [itensImportados, setItensImportados] = useState<ItemImportado[]>([]);
   const [fileName, setFileName] = useState("");
   const [nomeOrcamento, setNomeOrcamento] = useState("");
   const [nomeError, setNomeError] = useState(false);
@@ -85,27 +84,105 @@ export default function NovoOrcamento() {
     }
   }, [isLoading]);
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       if (!file.name.endsWith(".xlsx") && !file.name.endsWith(".xls")) {
         toast.error("Por favor, selecione um arquivo Excel (.xlsx ou .xls)");
         return;
       }
+
       setFileName(file.name);
       setIsLoading(true);
       setProgress(0);
       setLoadingStep(0);
-      setItensImportados([]);
 
-      // Simular processamento
-      setTimeout(() => {
+      try {
+        const { read, utils } = await import("xlsx");
+        const { searchAllSources } = await import("@/lib/searchAggregator");
+
+        const data = await file.arrayBuffer();
+        const workbook = read(data);
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+
+        if (jsonData.length < 2) {
+          throw new Error("A planilha parece estar vazia ou sem cabeçalho.");
+        }
+
+        // Tentar identificar colunas (simples heurística)
+        const headers = jsonData[0].map(h => String(h).toLowerCase());
+        const colIdx = {
+          nome: headers.findIndex(h => h.includes("item") || h.includes("nome") || h.includes("produto")),
+          descricao: headers.findIndex(h => h.includes("descri")),
+          quantidade: headers.findIndex(h => h.includes("qtd") || h.includes("quant")),
+          unidade: headers.findIndex(h => h.includes("unid") || h.includes("un")),
+        };
+
+        // Validação básica
+        if (colIdx.nome === -1) {
+          throw new Error("Não foi possível encontrar uma coluna para 'Nome do Item'. Verifique sua planilha.");
+        }
+
+        const itemsFromExcel: ItemImportado[] = jsonData.slice(1)
+          .filter(row => row[colIdx.nome])
+          .map((row, i) => ({
+            id: `xlsx-${i}`,
+            nome: String(row[colIdx.nome] || ""),
+            descricao: String(row[colIdx.descricao] || ""),
+            unidade: String(row[colIdx.unidade] || "UN"),
+            quantidade: parseFloat(String(row[colIdx.quantidade])) || 1,
+          }));
+
+        setProgress(30);
+        setLoadingStep(1); // Analisando itens
+
+        // Busca massiva em todas as fontes
+        const itemsWithResults = [];
+        const totalItems = itemsFromExcel.length;
+
+        for (let i = 0; i < totalItems; i++) {
+          const item = itemsFromExcel[i];
+
+          // Atualizar progresso visualmente conforme caminha
+          const currentProgress = 30 + Math.floor((i / totalItems) * 60);
+          setProgress(currentProgress);
+          if (i === Math.floor(totalItems / 3)) setLoadingStep(2); // Correspondências
+          if (i === Math.floor(totalItems / 1.5)) setLoadingStep(3); // Preços
+
+          const results = await searchAllSources(item.nome, {
+            includePNCP: true,
+            includeBPS: true,
+            includeSINAPI: true,
+            includeCATSER: true
+          });
+
+          itemsWithResults.push({
+            original: item,
+            results: results
+          });
+        }
+
+        setProgress(100);
+
+        // Finalizar e navegar
+        setTimeout(() => {
+          setIsLoading(false);
+          setDialogOpen(false);
+          navigate("/selecao-itens-importados", {
+            state: {
+              itemsWithResults,
+              nomeOrcamento
+            }
+          });
+          toast.success("Busca concluída em todas as fontes!");
+        }, 500);
+
+      } catch (err: any) {
+        console.error("Erro na importação:", err);
+        toast.error(`Falha ao processar planilha: ${err.message}`);
         setIsLoading(false);
-        setDialogOpen(false);
-        setItensImportados(itensMockImportados);
-        setReviewDialogOpen(true);
-        toast.success(`${itensMockImportados.length} itens encontrados!`);
-      }, 3500);
+      }
     }
   };
 
@@ -127,9 +204,9 @@ export default function NovoOrcamento() {
       setNomeError(true);
       return;
     }
-    
+
     setNameDialogOpen(false);
-    
+
     if (selectedMethod === "import") {
       setDialogOpen(true);
     } else if (selectedMethod === "manual") {
@@ -157,11 +234,11 @@ export default function NovoOrcamento() {
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-accent text-accent-foreground mb-4">
                 <FileSpreadsheet className="h-8 w-8" />
               </div>
-              
+
               <h3 className="text-lg font-semibold text-foreground mb-2">
                 Importar Itens via Excel
               </h3>
-              
+
               <p className="text-sm text-muted-foreground mb-4">
                 Faça upload de uma planilha com os itens que deseja cotar
               </p>
@@ -203,11 +280,11 @@ export default function NovoOrcamento() {
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-accent text-accent-foreground mb-4">
                 <PenLine className="h-8 w-8" />
               </div>
-              
+
               <h3 className="text-lg font-semibold text-foreground mb-2">
                 Criar Orçamento Manualmente
               </h3>
-              
+
               <p className="text-sm text-muted-foreground mb-4">
                 Busque e adicione itens um a um usando nossa busca inteligente
               </p>
@@ -342,27 +419,25 @@ export default function NovoOrcamento() {
                     <Loader2 className="h-10 w-10 animate-spin text-primary" />
                   </div>
                 </div>
-                
+
                 <div className="w-full space-y-4">
                   <Progress value={progress} className="h-2" />
-                  
+
                   <div className="space-y-3">
                     {loadingSteps.map((step, index) => {
                       const Icon = step.icon;
                       const isActive = index === loadingStep;
                       const isComplete = index < loadingStep;
-                      
+
                       return (
                         <div
                           key={index}
-                          className={`flex items-center gap-3 transition-opacity duration-300 ${
-                            isActive ? "opacity-100" : isComplete ? "opacity-50" : "opacity-30"
-                          }`}
+                          className={`flex items-center gap-3 transition-opacity duration-300 ${isActive ? "opacity-100" : isComplete ? "opacity-50" : "opacity-30"
+                            }`}
                         >
-                          <div className={`h-8 w-8 rounded-full flex items-center justify-center ${
-                            isComplete ? "bg-success/20 text-success" : 
+                          <div className={`h-8 w-8 rounded-full flex items-center justify-center ${isComplete ? "bg-success/20 text-success" :
                             isActive ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
-                          }`}>
+                            }`}>
                             {isComplete ? (
                               <CheckCircle className="h-4 w-4" />
                             ) : (
@@ -377,7 +452,7 @@ export default function NovoOrcamento() {
                     })}
                   </div>
                 </div>
-                
+
                 <p className="text-xs text-muted-foreground">
                   Processando: {fileName}
                 </p>
