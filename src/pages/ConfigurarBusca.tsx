@@ -6,12 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { cn } from "@/lib/utils";
 
 const fontes = [
   { id: "pncp", nome: "PNCP", descricao: "Portal Nacional de Contratações Públicas" },
   { id: "bps", nome: "BPS", descricao: "Banco de Preços em Saúde" },
-  { id: "painel", nome: "Painel de Preços", descricao: "Painel de Preços do Governo Federal" },
-  { id: "nfe", nome: "NFe", descricao: "Notas Fiscais Eletrônicas" },
+  { id: "painel", nome: "Painel de Preços", descricao: "Painel de Preços do Governo Federal", emBreve: true },
+  { id: "nfe", nome: "NFe", descricao: "Notas Fiscais Eletrônicas", emBreve: true },
+  { id: "simpro", nome: "SIMPRO", descricao: "Hospitalar", emBreve: true },
+  { id: "sigtap", nome: "SIGTAP", descricao: "SUS", emBreve: true },
+  { id: "licitacoes", nome: "LICIT. SIMILARES", descricao: "Licitações", emBreve: true },
 ];
 
 const ufs = [
@@ -26,6 +30,9 @@ export default function ConfigurarBusca() {
   const [ufsSelecionadas, setUfsSelecionadas] = useState<string[]>([]);
 
   const toggleFonte = (fonteId: string) => {
+    const fonte = fontes.find(f => f.id === fonteId);
+    if (fonte?.emBreve) return;
+
     setFontesSelecionadas(prev =>
       prev.includes(fonteId)
         ? prev.filter(id => id !== fonteId)
@@ -60,21 +67,32 @@ export default function ConfigurarBusca() {
             {fontes.map((fonte) => (
               <div
                 key={fonte.id}
-                className={`flex items-start gap-3 rounded-lg border-2 p-4 cursor-pointer transition-colors ${fontesSelecionadas.includes(fonte.id)
+                className={cn(
+                  "flex items-start gap-3 rounded-lg border-2 p-4 transition-colors relative",
+                  fonte.emBreve ? "opacity-60 grayscale cursor-not-allowed border-muted" : "cursor-pointer",
+                  !fonte.emBreve && fontesSelecionadas.includes(fonte.id)
                     ? "border-primary bg-accent/30"
-                    : "border-border hover:border-border/80"
-                  }`}
+                    : !fonte.emBreve && "border-border hover:border-border/80"
+                )}
                 onClick={() => toggleFonte(fonte.id)}
               >
                 <Checkbox
                   id={fonte.id}
                   checked={fontesSelecionadas.includes(fonte.id)}
+                  disabled={fonte.emBreve}
                   className="mt-0.5"
                 />
-                <div>
-                  <Label htmlFor={fonte.id} className="font-medium cursor-pointer">
-                    {fonte.nome}
-                  </Label>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor={fonte.id} className={cn("font-medium", !fonte.emBreve && "cursor-pointer")}>
+                      {fonte.nome}
+                    </Label>
+                    {fonte.emBreve && (
+                      <span className="bg-amber-500 text-[8px] text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-widest shadow-sm">
+                        Em breve
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-muted-foreground mt-0.5">{fonte.descricao}</p>
                 </div>
               </div>
@@ -130,8 +148,8 @@ export default function ConfigurarBusca() {
                           toggleUf(uf);
                         }}
                         className={`px-3 py-1 text-sm rounded-md border transition-colors ${ufsSelecionadas.includes(uf)
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "border-border hover:border-primary/50"
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "border-border hover:border-primary/50"
                           }`}
                       >
                         {uf}

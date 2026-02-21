@@ -34,6 +34,9 @@ const fontes = [
   { id: "setop", nome: "SETOP", descricao: "Obras Públicas", emBreve: true },
   { id: "ceasa", nome: "CEASA", descricao: "Hortifruti", emBreve: true },
   { id: "nfe", nome: "BANCO DE NFe", descricao: "Notas Fiscais Eletrônicas" },
+  { id: "simpro", nome: "SIMPRO", descricao: "Tabela de Insumos Hospitalares", emBreve: true },
+  { id: "sigtap", nome: "SIGTAP", descricao: "Tabela de Procedimentos SUS", emBreve: true },
+  { id: "licitacoes", nome: "LICITAÇÕES SIMILARES", descricao: "Dados de Processos Licitatórios", emBreve: true },
 ];
 
 // Mock items database (Empy as requested)
