@@ -110,26 +110,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                 if (session && isMounted) {
                     console.log("AuthContext: [INIT] Sessão encontrada, carregando dados...");
-                    await handleAuthChange(session);
+                    setUser(session.user); // Desbloqueia o app mais rápido
+                    await fetchProfileAndEntidade(session.user);
                 } else if (isMounted && localStorage.getItem('mf_auth_active') === 'true') {
-                    // TENTATIVA AGRESSIVA: A flag existe mas o getSession falhou.
-                    // Isso pode acontecer se o token no storage estiver ligeiramente corrompido ou expirado,
-                    // mas o supabase.auth.getUser() pode tentar um refresh automático.
-                    console.warn("AuthContext: [INIT] Flag mf_auth_active presente mas sessão nula. Tentando recuperação agressiva...");
-                    const { data: { user } } = await supabase.auth.getUser();
-                    if (user && isMounted) {
-                        console.log("AuthContext: [INIT] Sessão recuperada com sucesso!");
-                        setUser(user);
-                        await fetchProfileAndEntidade(user);
+                    console.warn("AuthContext: [INIT] Resgatando sessão via getUser...");
+                    const { data: { user: recoveredUser } } = await supabase.auth.getUser();
+                    if (recoveredUser && isMounted) {
+                        setUser(recoveredUser);
+                        await fetchProfileAndEntidade(recoveredUser);
+                    } else if (isMounted) {
+                        localStorage.removeItem('mf_auth_active');
                     }
-                } else {
-                    console.log("AuthContext: [INIT] Nenhuma sessão ativa.");
+                } else if (isMounted) {
+                    localStorage.removeItem('mf_auth_active');
                 }
             } catch (err) {
-                console.error("AuthContext: [INIT] Erro na inicialização:", err);
+                console.error("AuthContext: [INIT] Falha crítica na reidratação:", err);
+                if (isMounted) localStorage.removeItem('mf_auth_active');
             } finally {
                 if (isMounted) {
-                    console.log("AuthContext: [INIT] Inicialização concluída.");
                     setLoading(false);
                 }
             }
