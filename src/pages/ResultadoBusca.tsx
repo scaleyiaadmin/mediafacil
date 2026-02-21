@@ -98,24 +98,24 @@ export default function ResultadoBusca() {
           </Button>
         </div>
 
-        {/* Resumo */}
-        <div className="flex flex-col md:flex-row items-center justify-between rounded-xl border border-border bg-card p-6 gap-4 shadow-sm">
-          <div className="flex items-center gap-4 w-full md:w-auto">
-            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <FileCheck className="h-7 w-7" />
+        {/* Resumo Compacto */}
+        <div className="flex flex-col md:flex-row items-center justify-between rounded-lg border border-border bg-card p-4 gap-4 shadow-sm">
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <FileCheck className="h-5 w-5" />
             </div>
             <div className="flex-1">
-              <p className="font-bold text-foreground text-lg">
+              <p className="font-bold text-foreground text-sm">
                 {totalSelecionados} itens consolidados
               </p>
-              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
-                <p className="text-sm text-muted-foreground">
-                  Média: <span className="font-medium text-foreground">R$ {mediaUnitaria.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+              <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+                <p className="text-[11px] text-muted-foreground">
+                  Média: <span className="font-semibold text-foreground">R$ {mediaUnitaria.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                 </p>
-                <p className="text-sm text-muted-foreground">
-                  Mediana: <span className="font-medium text-foreground">R$ {medianaUnitaria.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                <p className="text-[11px] text-muted-foreground">
+                  Mediana: <span className="font-semibold text-foreground">R$ {medianaUnitaria.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                 </p>
-                <p className="text-sm text-primary font-bold">
+                <p className="text-[11px] text-primary font-bold">
                   Total Geral: R$ {valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </p>
               </div>
@@ -124,13 +124,13 @@ export default function ResultadoBusca() {
 
           <div className="flex items-center gap-3 w-full md:w-auto">
             <Button
-              className="gap-2 flex-1 md:flex-none h-11 px-6 shadow-md hover:shadow-lg transition-all"
+              className="gap-2 flex-1 md:flex-none h-9 px-4 text-xs font-semibold shadow-sm hover:shadow transition-all"
               onClick={handleFinalizar}
               disabled={isFinalizing}
             >
               {isFinalizing
                 ? <><Loader2 className="h-4 w-4 animate-spin" /> Salvando...</>
-                : <><ShoppingBag className="h-4 w-4" /> Montar Cesta de Preços</>
+                : <><ShoppingBag className="h-3.5 w-3.5" /> Montar Cesta de Preços</>
               }
             </Button>
           </div>
@@ -173,58 +173,52 @@ export default function ResultadoBusca() {
                 const totalPorItem = (item.preco || 0) * (item.quantidade || 1);
 
                 return (
-                  <div key={item.id} className="rounded-xl border border-border bg-card p-5 shadow-sm hover:shadow-md transition-all">
-                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                      <div className="flex-1 space-y-2">
-                        <div className="flex flex-wrap gap-2">
-                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 text-[10px] font-bold rounded-full uppercase tracking-wider ${badgeColor}`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${badgeDot}`} />
+                  <div key={item.id} className="rounded-lg border border-border bg-card p-3 shadow-sm hover:shadow-md transition-all">
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                      <div className="flex-1 space-y-1">
+                        <div className="flex flex-wrap gap-1.5">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-bold rounded-md uppercase tracking-wider ${badgeColor}`}>
+                            <span className={`w-1 h-1 rounded-full ${badgeDot}`} />
                             {item.fonte}
                           </span>
                           {item.metadata && (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 text-[10px] font-semibold rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200 border border-amber-200 dark:border-amber-800 uppercase tracking-wider">
-                              <Sparkles className="h-3 w-3" />
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-semibold rounded-md bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-200 border border-amber-100 dark:border-amber-800 uppercase tracking-wider">
+                              <Sparkles className="h-2.5 w-2.5" />
                               {item.metadata}
                             </span>
                           )}
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800 uppercase tracking-wider">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-bold rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-200 border border-emerald-100 dark:border-emerald-800 uppercase tracking-wider">
                             Qtd: {item.quantidade || 1}
                           </span>
                         </div>
-                        <p className="font-bold text-foreground text-lg leading-tight">{item.nome}</p>
+                        <p className="font-bold text-foreground text-sm uppercase leading-tight tracking-tight">{item.nome}</p>
                       </div>
-                      <div className="text-right">
-                        <p className="text-xs text-muted-foreground font-medium uppercase mb-1">Total do Item</p>
-                        <p className="text-2xl font-black text-emerald-600">
+                      <div className="text-right flex flex-col items-end">
+                        <p className="text-[10px] text-muted-foreground font-semibold uppercase opacity-70">Total do Item</p>
+                        <p className="text-lg font-black text-emerald-600">
                           R$ {totalPorItem.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          (R$ {item.preco?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / un)
+                        <p className="text-[10px] text-muted-foreground mt-0.5 font-medium">
+                          R$ {item.preco?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / un
                         </p>
                       </div>
                     </div>
 
-                    <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3 text-xs text-muted-foreground mt-6 pt-4 border-t border-border/50">
-                      <div className="flex items-center gap-2.5">
-                        <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
-                          <Calendar className="h-3.5 w-3.5" />
-                        </div>
-                        <span className="font-medium">{item.data || "Referência Atual"}</span>
+                    <div className="flex flex-wrap gap-x-4 gap-y-2 text-[10px] text-muted-foreground mt-3 pt-2 border-t border-border/40 font-medium">
+                      <div className="flex items-center gap-1.5">
+                        <Calendar className="h-3 w-3 opacity-60" />
+                        <span>{item.data || "Referência Atual"}</span>
                       </div>
 
-                      <div className="flex items-center gap-2.5">
-                        <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
-                          <Building2 className="h-3.5 w-3.5" />
-                        </div>
-                        <span className="truncate font-medium" title={item.orgao}>{item.orgao || "Órgão Não Informado"}</span>
+                      <div className="flex items-center gap-1.5 max-w-[250px]">
+                        <Building2 className="h-3 w-3 opacity-60" />
+                        <span className="truncate" title={item.orgao}>{item.orgao || "Órgão Não Informado"}</span>
                       </div>
 
                       {item.cidadeUf && (
-                        <div className="flex items-center gap-2.5">
-                          <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
-                            <MapPin className="h-3.5 w-3.5" />
-                          </div>
-                          <span className="font-medium">{item.cidadeUf}</span>
+                        <div className="flex items-center gap-1.5">
+                          <MapPin className="h-3 w-3 opacity-60" />
+                          <span>{item.cidadeUf}</span>
                         </div>
                       )}
                     </div>

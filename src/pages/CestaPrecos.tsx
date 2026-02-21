@@ -191,54 +191,54 @@ export default function CestaPrecos() {
                     </div>
                 </div>
 
-                {/* Cards de resumo */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
-                        <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                                <ShoppingBasket className="h-5 w-5 text-primary" />
+                {/* Cards de resumo compactos */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="rounded-lg border border-border bg-card p-3 shadow-sm">
+                        <div className="flex items-center gap-2.5">
+                            <div className="h-8 w-8 rounded-md bg-primary/10 flex items-center justify-center">
+                                <ShoppingBasket className="h-4 w-4 text-primary" />
                             </div>
                             <div>
-                                <p className="text-xs text-muted-foreground">Itens na Cesta</p>
-                                <p className="text-xl font-bold text-foreground">{itensAgrupados.length}</p>
+                                <p className="text-[10px] text-muted-foreground font-medium uppercase opacity-70">Itens</p>
+                                <p className="text-lg font-bold text-foreground">{itensAgrupados.length}</p>
                             </div>
                         </div>
                     </div>
 
-                    <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
-                        <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                                <BarChart3 className="h-5 w-5 text-blue-500" />
+                    <div className="rounded-lg border border-border bg-card p-3 shadow-sm">
+                        <div className="flex items-center gap-2.5">
+                            <div className="h-8 w-8 rounded-md bg-blue-500/10 flex items-center justify-center">
+                                <BarChart3 className="h-4 w-4 text-blue-500" />
                             </div>
                             <div>
-                                <p className="text-xs text-muted-foreground">Fontes Consultadas</p>
-                                <p className="text-xl font-bold text-foreground">{fontesPresentes.length}</p>
+                                <p className="text-[10px] text-muted-foreground font-medium uppercase opacity-70">Fontes</p>
+                                <p className="text-lg font-bold text-foreground">{fontesPresentes.length}</p>
                             </div>
                         </div>
                     </div>
 
-                    <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
-                        <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
-                                <Calculator className="h-5 w-5 text-amber-500" />
+                    <div className="rounded-lg border border-border bg-card p-3 shadow-sm">
+                        <div className="flex items-center gap-2.5">
+                            <div className="h-8 w-8 rounded-md bg-amber-500/10 flex items-center justify-center">
+                                <Calculator className="h-4 w-4 text-amber-500" />
                             </div>
                             <div>
-                                <p className="text-xs text-muted-foreground">Total (Média)</p>
-                                <p className="text-xl font-bold text-foreground">
+                                <p className="text-[10px] text-muted-foreground font-medium uppercase opacity-70">Total (Média)</p>
+                                <p className="text-lg font-bold text-foreground">
                                     R$ {totalGeralMedia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                 </p>
                             </div>
                         </div>
                     </div>
 
-                    <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
-                        <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-                                <TrendingDown className="h-5 w-5 text-emerald-500" />
+                    <div className="rounded-lg border border-border bg-card p-3 shadow-sm">
+                        <div className="flex items-center gap-2.5">
+                            <div className="h-8 w-8 rounded-md bg-emerald-500/10 flex items-center justify-center">
+                                <TrendingDown className="h-4 w-4 text-emerald-500" />
                             </div>
                             <div>
-                                <p className="text-xs text-muted-foreground">Total (Menor Preço)</p>
-                                <p className="text-xl font-bold text-emerald-600">
+                                <p className="text-[10px] text-muted-foreground font-medium uppercase opacity-70">Total (Menor)</p>
+                                <p className="text-lg font-bold text-emerald-600">
                                     R$ {totalGeralMenor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                 </p>
                             </div>
@@ -257,16 +257,13 @@ export default function CestaPrecos() {
 
                 <Separator />
 
-                {/* Tabela comparativa de itens */}
-                <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
-                    <div className="p-4 border-b border-border bg-muted/50">
-                        <h3 className="font-semibold text-foreground flex items-center gap-2">
-                            <ShoppingBasket className="h-5 w-5 text-primary" />
+                {/* Tabela comparativa de itens condensada */}
+                <div className="rounded-lg border border-border bg-card shadow-sm overflow-hidden">
+                    <div className="px-4 py-3 border-b border-border bg-muted/30">
+                        <h3 className="text-sm font-bold text-foreground flex items-center gap-2 uppercase tracking-tight">
+                            <ShoppingBasket className="h-4 w-4 text-primary" />
                             Itens da Cesta
                         </h3>
-                        <p className="text-xs text-muted-foreground mt-1">
-                            Comparação de preços por fonte com cálculos automáticos
-                        </p>
                     </div>
 
                     {itens.length === 0 ? (
@@ -307,16 +304,16 @@ export default function CestaPrecos() {
                                     {itens.map((item, index) => {
                                         const total = (item.preco || 0) * (item.quantidade || 1);
                                         return (
-                                            <tr key={`${item.id}-${index}`} className="hover:bg-muted/20 transition-colors">
-                                                <td className="px-4 py-3">
-                                                    <p className="font-medium text-sm text-foreground leading-tight">{item.nome}</p>
+                                            <tr key={`${item.id}-${index}`} className="hover:bg-muted/10 transition-colors border-b border-border last:border-0 text-xs">
+                                                <td className="px-4 py-2">
+                                                    <p className="font-bold text-foreground leading-tight uppercase text-[11px] tracking-tight">{item.nome}</p>
                                                     {item.orgao && (
-                                                        <p className="text-[10px] text-muted-foreground mt-0.5 truncate max-w-[250px]">
+                                                        <p className="text-[9px] text-muted-foreground mt-0.5 truncate max-w-[200px] opacity-70">
                                                             {item.orgao}
                                                         </p>
                                                     )}
                                                 </td>
-                                                <td className="px-3 py-3 text-center text-sm text-muted-foreground">
+                                                <td className="px-3 py-2 text-center font-medium opacity-70">
                                                     {item.unidade}
                                                 </td>
                                                 <td className="px-3 py-3">
@@ -351,20 +348,20 @@ export default function CestaPrecos() {
                                                         {item.fonte}
                                                     </span>
                                                 </td>
-                                                <td className="px-3 py-3 text-right text-sm font-medium">
+                                                <td className="px-3 py-2 text-right font-medium">
                                                     R$ {item.preco?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                 </td>
-                                                <td className="px-3 py-3 text-right text-sm font-bold text-emerald-600">
+                                                <td className="px-3 py-2 text-right font-bold text-emerald-600">
                                                     R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                 </td>
-                                                <td className="px-3 py-3 text-center">
+                                                <td className="px-3 py-2 text-center">
                                                     <Button
                                                         size="icon"
                                                         variant="ghost"
-                                                        className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                        className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
                                                         onClick={() => removerItem(index)}
                                                     >
-                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                        <Trash2 className="h-3 w-3" />
                                                     </Button>
                                                 </td>
                                             </tr>
@@ -376,17 +373,14 @@ export default function CestaPrecos() {
                     )}
                 </div>
 
-                {/* Resumo de cálculos por item agrupado */}
+                {/* Resumo de cálculos condensado */}
                 {itensAgrupados.length > 0 && (
-                    <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
-                        <div className="p-4 border-b border-border bg-muted/50">
-                            <h3 className="font-semibold text-foreground flex items-center gap-2">
-                                <Calculator className="h-5 w-5 text-primary" />
+                    <div className="rounded-lg border border-border bg-card shadow-sm overflow-hidden">
+                        <div className="px-4 py-3 border-b border-border bg-muted/30">
+                            <h3 className="text-sm font-bold text-foreground flex items-center gap-2 uppercase tracking-tight">
+                                <Calculator className="h-4 w-4 text-primary" />
                                 Resumo Consolidado
                             </h3>
-                            <p className="text-xs text-muted-foreground mt-1">
-                                Média, mediana e menor preço calculados automaticamente
-                            </p>
                         </div>
                         <div className="overflow-x-auto">
                             <table className="w-full">
@@ -401,51 +395,51 @@ export default function CestaPrecos() {
                                         <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-3">Total Est.</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-border">
+                                <tbody className="divide-y divide-border text-[11px]">
                                     {itensAgrupados.map((grupo, idx) => (
-                                        <tr key={idx} className="hover:bg-muted/20 transition-colors">
-                                            <td className="px-4 py-3">
-                                                <p className="font-medium text-sm text-foreground">{grupo.nomeBase}</p>
-                                                <p className="text-[10px] text-muted-foreground">{grupo.unidade}</p>
+                                        <tr key={idx} className="hover:bg-muted/10 transition-colors">
+                                            <td className="px-4 py-2">
+                                                <p className="font-bold text-foreground uppercase leading-tight tracking-tight">{grupo.nomeBase}</p>
+                                                <p className="text-[9px] text-muted-foreground opacity-70">{grupo.unidade}</p>
                                             </td>
-                                            <td className="px-3 py-3 text-center text-sm">{grupo.quantidade}</td>
-                                            <td className="px-3 py-3 text-center">
+                                            <td className="px-3 py-2 text-center font-medium">{grupo.quantidade}</td>
+                                            <td className="px-3 py-2 text-center">
                                                 <div className="flex flex-wrap gap-1 justify-center">
                                                     {grupo.precosPorFonte.map((pf, i) => (
-                                                        <span key={i} className={`px-1.5 py-0.5 text-[9px] font-bold rounded ${corFonte(pf.fonte)}`}>
+                                                        <span key={i} className={`px-1 py-0.5 text-[8px] font-bold rounded ${corFonte(pf.fonte)}`}>
                                                             {pf.fonte}
                                                         </span>
                                                     ))}
                                                 </div>
                                             </td>
-                                            <td className="px-3 py-3 text-right text-sm font-medium">
+                                            <td className="px-3 py-2 text-right font-semibold">
                                                 R$ {grupo.media.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                             </td>
-                                            <td className="px-3 py-3 text-right text-sm font-medium">
+                                            <td className="px-3 py-2 text-right font-semibold">
                                                 R$ {grupo.mediana.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                             </td>
-                                            <td className="px-3 py-3 text-right text-sm font-medium text-emerald-600">
+                                            <td className="px-3 py-2 text-right font-bold text-emerald-600">
                                                 R$ {grupo.menorPreco.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                             </td>
-                                            <td className="px-3 py-3 text-right text-sm font-bold">
+                                            <td className="px-3 py-2 text-right font-black">
                                                 R$ {grupo.totalEstimado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                             </td>
                                         </tr>
                                     ))}
                                 </tbody>
                                 <tfoot>
-                                    <tr className="bg-emerald-50 dark:bg-emerald-900/20 border-t-2 border-emerald-200 dark:border-emerald-800">
-                                        <td colSpan={3} className="px-4 py-3 font-bold text-emerald-900 dark:text-emerald-100">
+                                    <tr className="bg-emerald-50 dark:bg-emerald-900/10 border-t-2 border-emerald-100 dark:border-emerald-900 py-1">
+                                        <td colSpan={3} className="px-4 py-2 font-black text-emerald-800 dark:text-emerald-100 text-[10px] uppercase">
                                             TOTAL GERAL
                                         </td>
-                                        <td className="px-3 py-3 text-right font-bold text-emerald-900 dark:text-emerald-100">
+                                        <td className="px-3 py-2 text-right font-black text-emerald-800 dark:text-emerald-100 text-[11px]">
                                             R$ {totalGeralMedia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                         </td>
-                                        <td className="px-3 py-3 text-right font-bold text-emerald-900 dark:text-emerald-100">—</td>
-                                        <td className="px-3 py-3 text-right font-bold text-emerald-600">
+                                        <td className="px-3 py-2 text-right font-bold text-emerald-800/50 dark:text-emerald-100/50 text-[11px]">—</td>
+                                        <td className="px-3 py-2 text-right font-black text-emerald-600 text-[11px]">
                                             R$ {totalGeralMenor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                         </td>
-                                        <td className="px-3 py-3 text-right font-bold text-emerald-900 dark:text-emerald-100">
+                                        <td className="px-3 py-2 text-right font-black text-emerald-800 dark:text-emerald-100 text-[11px]">
                                             R$ {totalGeralMedia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                         </td>
                                     </tr>
