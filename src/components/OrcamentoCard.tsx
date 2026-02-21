@@ -86,6 +86,7 @@ export function OrcamentoCard({
         <div className="flex justify-end pt-2 border-t border-border">
           <OrcamentoActions
             id={id}
+            nome={nome}
             status={status}
             onDelete={onDelete}
           />

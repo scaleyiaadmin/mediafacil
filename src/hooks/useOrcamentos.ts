@@ -17,7 +17,7 @@ export function useOrcamentos() {
     const [orcamentos, setOrcamentos] = useState<Orcamento[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const { user, profile, entidade } = useAuth();
+    const { user, profile } = useAuth();
 
     const fetchOrcamentos = useCallback(async () => {
         if (!user || !profile?.entidade_id) {
@@ -34,9 +34,7 @@ export function useOrcamentos() {
                 .eq('entidade_id', profile.entidade_id)
                 .order('created_at', { ascending: false });
 
-            if (error) {
-                throw error;
-            }
+            if (error) throw error;
 
             if (data) {
                 setOrcamentos(data.map(item => ({
@@ -46,11 +44,11 @@ export function useOrcamentos() {
                     dataFinalizacao: item.data_finalizacao ? new Date(item.data_finalizacao).toLocaleDateString('pt-BR') : undefined,
                     status: item.status,
                     linksEnviados: item.links_enviados,
-                    orcamentosRecebidos: item.orcamentos_rece_bidos
+                    orcamentosRecebidos: item.orcamentos_recebidos
                 })));
             }
         } catch (err: any) {
-            console.error('Error fetching orcamentos:', err);
+            console.error('Erro ao buscar orçamentos:', err);
             setError(err.message);
         } finally {
             setLoading(false);
@@ -73,7 +71,7 @@ export function useOrcamentos() {
             setOrcamentos(prev => prev.filter(o => o.id !== id));
             toast.success("Orçamento excluído com sucesso!");
         } catch (err: any) {
-            console.error('Error deleting orcamento:', err);
+            console.error('Erro ao excluir orçamento:', err);
             toast.error("Erro ao excluir orçamento: " + err.message);
         }
     };
@@ -89,16 +87,16 @@ export function useOrcamentos() {
             if (!profile?.entidade_id) throw new Error("Aguardando carregamento do perfil...");
 
             const entidadeId = profile.entidade_id;
-            const usuarioId = profile.id; // Alterado de user.id para profile.id para evitar erro de FK
+            const usuarioId = profile.id;
 
-            // 1. Insert Orcamento
+            // 1. Criar o orçamento principal
             const { data: orcamento, error: orcamentoError } = await supabase
                 .from('orcamentos')
                 .insert({
                     nome,
                     status,
                     entidade_id: entidadeId,
-                    usuario_id: usuarioId, // Auth ID
+                    usuario_id: usuarioId,
                     data_solicitacao: new Date().toISOString(),
                     links_enviados: fornecedores.length,
                     orcamentos_recebidos: 0
@@ -108,15 +106,16 @@ export function useOrcamentos() {
 
             if (orcamentoError) throw orcamentoError;
 
-            // 2. Insert Itens
+            // 2. Salvar os itens (aceita múltiplos formatos)
             if (itens.length > 0) {
                 const itensToInsert = itens.map(item => ({
                     orcamento_id: orcamento.id,
                     nome: item.nome,
-                    descricao: item.descricao,
-                    unidade: item.unidade,
-                    quantidade: item.quantidade,
-                    valor_referencia: item.media || item.valor || 0
+                    descricao: item.descricao || item.fonte || null,
+                    unidade: item.unidade || 'UN',
+                    quantidade: item.quantidade || 1,
+                    // Aceita valor_referencia, media, preco ou valor
+                    valor_referencia: item.valor_referencia ?? item.media ?? item.preco ?? item.valor ?? 0
                 }));
 
                 const { error: itensError } = await supabase
@@ -126,7 +125,7 @@ export function useOrcamentos() {
                 if (itensError) throw itensError;
             }
 
-            // 3. Insert Fornecedores Relations
+            // 3. Salvar vínculos de fornecedores
             if (fornecedores.length > 0) {
                 const fornecedoresToInsert = fornecedores.map(f => ({
                     orcamento_id: orcamento.id,
@@ -142,17 +141,81 @@ export function useOrcamentos() {
             }
 
             toast.success(status === 'draft' ? "Rascunho salvo!" : "Orçamento criado com sucesso!");
-
-            // Refresh list
             fetchOrcamentos();
             return orcamento;
 
         } catch (err: any) {
-            console.error('Error creating orcamento:', err);
+            console.error('Erro ao salvar orçamento:', err);
             toast.error("Erro ao salvar orçamento: " + err.message);
             throw err;
         }
     };
 
-    return { orcamentos, loading, error, refetch: fetchOrcamentos, deleteOrcamento, createOrcamento };
+    // NOVA FUNÇÃO: Duplicar um orçamento existente (busca itens do original e cria cópia)
+    const duplicateOrcamento = async (id: string, novoNome: string) => {
+        try {
+            if (!profile?.entidade_id) throw new Error("Perfil não carregado.");
+
+            // 1. Buscar orçamento original
+            const { data: original, error: origErr } = await supabase
+                .from('orcamentos')
+                .select('*')
+                .eq('id', id)
+                .single();
+            if (origErr) throw origErr;
+
+            // 2. Buscar itens do original
+            const { data: itensOriginais, error: itensErr } = await supabase
+                .from('orcamento_itens')
+                .select('*')
+                .eq('orcamento_id', id);
+            if (itensErr) throw itensErr;
+
+            // 3. Criar novo orçamento como rascunho com o novo nome
+            const { data: novoOrc, error: novoErr } = await supabase
+                .from('orcamentos')
+                .insert({
+                    nome: novoNome || `Cópia de ${original.nome}`,
+                    status: 'draft',
+                    entidade_id: profile.entidade_id,
+                    usuario_id: profile.id,
+                    data_solicitacao: new Date().toISOString(),
+                    links_enviados: 0,
+                    orcamentos_recebidos: 0
+                })
+                .select()
+                .single();
+            if (novoErr) throw novoErr;
+
+            // 4. Copiar itens para o novo orçamento
+            if (itensOriginais && itensOriginais.length > 0) {
+                const novoItens = itensOriginais.map(i => ({
+                    orcamento_id: novoOrc.id,
+                    nome: i.nome,
+                    descricao: i.descricao,
+                    unidade: i.unidade,
+                    quantidade: i.quantidade,
+                    valor_referencia: i.valor_referencia
+                }));
+
+                const { error: copyErr } = await supabase
+                    .from('orcamento_itens')
+                    .insert(novoItens);
+                if (copyErr) throw copyErr;
+            }
+
+            toast.success("Orçamento duplicado com sucesso!", {
+                description: `"${novoNome}" criado como rascunho.`
+            });
+            fetchOrcamentos();
+            return novoOrc;
+
+        } catch (err: any) {
+            console.error('Erro ao duplicar orçamento:', err);
+            toast.error("Erro ao duplicar: " + err.message);
+            throw err;
+        }
+    };
+
+    return { orcamentos, loading, error, refetch: fetchOrcamentos, deleteOrcamento, createOrcamento, duplicateOrcamento };
 }

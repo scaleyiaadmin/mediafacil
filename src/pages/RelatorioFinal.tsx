@@ -127,15 +127,19 @@ export default function RelatorioFinal() {
   const executeSave = async (status: "draft" | "waiting_suppliers" | "completed", nome: string) => {
     setIsSaving(true);
     try {
+      // Passa os itens brutos do state (não os transformados pelo relatório)
+      // O hook aceita: nome, quantidade, unidade, preco, valor, media, valor_referencia
+      const itensParaSalvar = state?.itens || [];
+
       await createOrcamento(
         nome,
-        relatorioData.itens,
+        itensParaSalvar,
         state?.fornecedores || [],
         status
       );
 
       setIsNameDialogOpen(false);
-      navigate("/");
+      navigate("/orcamentos");
 
     } catch (error) {
       console.error(error);

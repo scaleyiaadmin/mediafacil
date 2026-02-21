@@ -22,168 +22,123 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { useOrcamentos } from "@/hooks/useOrcamentos";
 
 type OrcamentoStatus = "waiting_suppliers" | "completed" | "draft" | "deadline_expired";
 
 interface OrcamentoActionsProps {
   id: string;
+  nome: string;
   status: OrcamentoStatus;
-  onDuplicate?: (id: string) => void;
   onDelete?: (id: string) => void;
   onFinalize?: (id: string) => void;
   onResend?: (id: string) => void;
 }
 
-export function OrcamentoActions({ id, status, onDuplicate, onDelete, onFinalize, onResend }: OrcamentoActionsProps) {
+export function OrcamentoActions({ id, nome, status, onDelete, onFinalize, onResend }: OrcamentoActionsProps) {
   const navigate = useNavigate();
+  const { duplicateOrcamento } = useOrcamentos();
+
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showFinalizeDialog, setShowFinalizeDialog] = useState(false);
+  const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
   const [password, setPassword] = useState("");
   const [passwordError, setPasswordError] = useState(false);
+  const [novoNome, setNovoNome] = useState(`Cópia de ${nome}`);
+  const [isDuplicating, setIsDuplicating] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
 
   const handleView = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+    e.preventDefault(); e.stopPropagation();
     navigate(`/orcamento/${id}`);
   };
 
   const handleEdit = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (status === "draft") {
-      navigate(`/buscar-itens-manual?edit=${id}`);
+    e.preventDefault(); e.stopPropagation();
+    if (status === "draft") navigate(`/buscar-itens-manual?edit=${id}`);
+  };
+
+  const handleDuplicateClick = (e: React.MouseEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    setNovoNome(`Cópia de ${nome}`);
+    setShowDuplicateDialog(true);
+  };
+
+  const handleConfirmDuplicate = async () => {
+    if (!novoNome.trim()) {
+      toast.error("Informe um nome para o orçamento duplicado.");
+      return;
+    }
+    setIsDuplicating(true);
+    try {
+      await duplicateOrcamento(id, novoNome.trim());
+      setShowDuplicateDialog(false);
+    } finally {
+      setIsDuplicating(false);
     }
   };
 
-  const handleDuplicate = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    toast.success("Orçamento duplicado com sucesso!", {
-      description: "Datas e preços atualizados. Nova busca realizada.",
-    });
-    onDuplicate?.(id);
-  };
-
   const handleDeleteClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+    e.preventDefault(); e.stopPropagation();
     setShowDeleteDialog(true);
   };
 
   const handleFinalizeClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+    e.preventDefault(); e.stopPropagation();
     setShowFinalizeDialog(true);
   };
 
   const handleResendClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+    e.preventDefault(); e.stopPropagation();
     navigate(`/solicitar-fornecedores?resend=${id}`);
     onResend?.(id);
   };
 
-  const [isVerifying, setIsVerifying] = useState(false);
-
   const handleConfirmFinalize = async () => {
     try {
       setIsVerifying(true);
-      // Verify password against database
       const { data, error } = await supabase
         .from('usuarios')
         .select('id')
         .eq('senha', password)
         .limit(1);
 
-      if (error) {
-        console.error("Database error during password check:", error);
-        toast.error("Erro ao acessar banco de dados. Verifique a tabela 'usuarios'.");
-        return;
-      }
+      if (error) { toast.error("Erro ao verificar senha."); return; }
 
       if (data && data.length > 0) {
         toast.success("Orçamento finalizado com sucesso!");
         onFinalize?.(id);
-        setShowFinalizeDialog(false);
-        setPassword("");
-        setPasswordError(false);
+        setShowFinalizeDialog(false); setPassword(""); setPasswordError(false);
       } else {
-        // Diagnostic: Check if any users exist at all
-        const { count } = await supabase
-          .from('usuarios')
-          .select('*', { count: 'exact', head: true });
-
-        if (count === 0) {
-          toast.error("A tabela de usuários está vazia. Rode o script SQL novamente.");
-        } else {
-          setPasswordError(true);
-          toast.error("Senha incorreta");
-        }
+        setPasswordError(true);
+        toast.error("Senha incorreta");
       }
-    } catch (err: any) {
-      console.error("Unexpected error verifying password:", err);
-      toast.error("Erro inesperado ao verificar senha");
     } finally {
       setIsVerifying(false);
     }
   };
 
-  const handleFinalizeDialogClose = () => {
-    setShowFinalizeDialog(false);
-    setPassword("");
-    setPasswordError(false);
-  };
-
   const handleConfirmDelete = async () => {
     try {
       setIsVerifying(true);
-      // Verify password against database
       const { data, error: authError } = await supabase
         .from('usuarios')
         .select('id')
         .eq('senha', password)
         .limit(1);
 
-      if (authError) {
-        console.error("Database error during password check:", authError);
-        toast.error("Erro ao acessar banco de dados. Verifique o Supabase.");
-        return;
-      }
+      if (authError) { toast.error("Erro ao verificar senha."); return; }
 
       if (data && data.length > 0) {
-        // Call onDelete which usually triggers the hook's delete function
         onDelete?.(id);
-        setShowDeleteDialog(false);
-        setPassword("");
-        setPasswordError(false);
+        setShowDeleteDialog(false); setPassword(""); setPasswordError(false);
       } else {
-        // Diagnostic: Check if any users exist at all
-        const { count } = await supabase
-          .from('usuarios')
-          .select('*', { count: 'exact', head: true });
-
-        if (count === 0) {
-          toast.error("Nenhum usuário cadastrado. Rode o script SQL no Supabase.");
-        } else {
-          setPasswordError(true);
-          toast.error("Senha incorreta");
-        }
+        setPasswordError(true);
+        toast.error("Senha incorreta");
       }
-    } catch (err: any) {
-      console.error("Unexpected error verifying password:", err);
-      toast.error("Erro inesperado ao verificar senha");
     } finally {
       setIsVerifying(false);
     }
-  };
-
-
-
-
-  const handleDialogClose = () => {
-    setShowDeleteDialog(false);
-    setPassword("");
-    setPasswordError(false);
   };
 
   const canFinalize = status === "waiting_suppliers" || status === "deadline_expired";
@@ -192,195 +147,146 @@ export function OrcamentoActions({ id, status, onDuplicate, onDelete, onFinalize
   return (
     <TooltipProvider>
       <div className="flex items-center gap-1" onClick={(e) => e.preventDefault()}>
+        {/* Ver */}
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-foreground"
-              onClick={handleView}
-            >
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={handleView}>
               <Eye className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>
-            <p>Visualizar</p>
-          </TooltipContent>
+          <TooltipContent><p>Visualizar</p></TooltipContent>
         </Tooltip>
 
+        {/* Editar (somente rascunho) */}
         {status === "draft" && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                onClick={handleEdit}
-              >
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={handleEdit}>
                 <Pencil className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>
-              <p>Editar</p>
-            </TooltipContent>
+            <TooltipContent><p>Editar</p></TooltipContent>
           </Tooltip>
         )}
 
+        {/* Reenviar */}
         {canResend && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-info"
-                onClick={handleResendClick}
-              >
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-info" onClick={handleResendClick}>
                 <RefreshCw className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>
-              <p>Reenviar Solicitação</p>
-            </TooltipContent>
+            <TooltipContent><p>Reenviar Solicitação</p></TooltipContent>
           </Tooltip>
         )}
 
+        {/* Finalizar */}
         {canFinalize && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-success"
-                onClick={handleFinalizeClick}
-              >
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-success" onClick={handleFinalizeClick}>
                 <CheckCircle className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>
-              <p>Finalizar Orçamento</p>
-            </TooltipContent>
+            <TooltipContent><p>Finalizar Orçamento</p></TooltipContent>
           </Tooltip>
         )}
 
+        {/* Duplicar */}
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-foreground"
-              onClick={handleDuplicate}
-            >
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={handleDuplicateClick}>
               <Copy className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>
-            <p>Duplicar</p>
-          </TooltipContent>
+          <TooltipContent><p>Duplicar</p></TooltipContent>
         </Tooltip>
 
+        {/* Excluir */}
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-destructive"
-              onClick={handleDeleteClick}
-            >
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={handleDeleteClick}>
               <Trash2 className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>
-            <p>Excluir</p>
-          </TooltipContent>
+          <TooltipContent><p>Excluir</p></TooltipContent>
         </Tooltip>
 
-        {/* Finalize Confirmation Dialog with Password */}
-        <AlertDialog open={showFinalizeDialog} onOpenChange={handleFinalizeDialogClose}>
+        {/* Diálogo de Duplicação */}
+        <AlertDialog open={showDuplicateDialog} onOpenChange={setShowDuplicateDialog}>
           <AlertDialogContent onClick={(e) => e.stopPropagation()}>
             <AlertDialogHeader>
-              <AlertDialogTitle>Finalizar Orçamento</AlertDialogTitle>
+              <AlertDialogTitle>Duplicar Orçamento</AlertDialogTitle>
               <AlertDialogDescription>
-                Tem certeza que deseja finalizar este orçamento? O relatório final será gerado com os dados atuais. Digite sua senha para confirmar.
+                Será criada uma cópia com todos os itens do orçamento original como rascunho. Informe o nome para a cópia.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <div className="py-4">
-              <Label htmlFor="finalize-password">Senha</Label>
+              <Label htmlFor="duplicate-name">Nome do novo orçamento</Label>
               <Input
-                id="finalize-password"
-                type="password"
-                placeholder="Digite sua senha para confirmar"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  setPasswordError(false);
-                }}
-                disabled={isVerifying}
-                className={passwordError ? "border-destructive" : ""}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleConfirmFinalize();
-                  }
-                }}
+                id="duplicate-name"
+                placeholder="Nome do orçamento duplicado"
+                value={novoNome}
+                onChange={(e) => setNovoNome(e.target.value)}
+                disabled={isDuplicating}
+                className="mt-1.5"
+                onKeyDown={(e) => { if (e.key === "Enter") handleConfirmDuplicate(); }}
               />
-              {passwordError && (
-                <p className="text-sm text-destructive mt-1">Senha incorreta</p>
-              )}
             </div>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={handleFinalizeDialogClose} disabled={isVerifying}>Cancelar</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleConfirmFinalize}
-                className="bg-success text-success-foreground hover:bg-success/90"
-                disabled={isVerifying}
-              >
-                {isVerifying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Finalizar
+              <AlertDialogCancel disabled={isDuplicating}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleConfirmDuplicate} disabled={isDuplicating}>
+                {isDuplicating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Duplicar
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
 
-        {/* Delete Confirmation Dialog */}
-        <AlertDialog open={showDeleteDialog} onOpenChange={handleDialogClose}>
+        {/* Diálogo de Finalização */}
+        <AlertDialog open={showFinalizeDialog} onOpenChange={(open) => { setShowFinalizeDialog(open); if (!open) { setPassword(""); setPasswordError(false); } }}>
+          <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Finalizar Orçamento</AlertDialogTitle>
+              <AlertDialogDescription>Confirme sua senha para finalizar o orçamento.</AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="py-4">
+              <Label htmlFor="finalize-password">Senha</Label>
+              <Input id="finalize-password" type="password" placeholder="Digite sua senha" value={password}
+                onChange={(e) => { setPassword(e.target.value); setPasswordError(false); }}
+                disabled={isVerifying} className={passwordError ? "border-destructive mt-1.5" : "mt-1.5"}
+                onKeyDown={(e) => { if (e.key === "Enter") handleConfirmFinalize(); }} />
+              {passwordError && <p className="text-sm text-destructive mt-1">Senha incorreta</p>}
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isVerifying}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleConfirmFinalize} className="bg-success text-success-foreground hover:bg-success/90" disabled={isVerifying}>
+                {isVerifying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Finalizar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Diálogo de Exclusão */}
+        <AlertDialog open={showDeleteDialog} onOpenChange={(open) => { setShowDeleteDialog(open); if (!open) { setPassword(""); setPasswordError(false); } }}>
           <AlertDialogContent onClick={(e) => e.stopPropagation()}>
             <AlertDialogHeader>
               <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-              <AlertDialogDescription>
-                Esta ação não pode ser desfeita. Digite sua senha para confirmar a exclusão do orçamento.
-              </AlertDialogDescription>
+              <AlertDialogDescription>Esta ação não pode ser desfeita. Digite sua senha para confirmar.</AlertDialogDescription>
             </AlertDialogHeader>
             <div className="py-4">
               <Label htmlFor="password">Senha</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Digite sua senha"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  setPasswordError(false);
-                }}
-                disabled={isVerifying}
-                className={passwordError ? "border-destructive" : ""}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleConfirmDelete();
-                  }
-                }}
-              />
-              {passwordError && (
-                <p className="text-sm text-destructive mt-1">Senha incorreta</p>
-              )}
+              <Input id="password" type="password" placeholder="Digite sua senha" value={password}
+                onChange={(e) => { setPassword(e.target.value); setPasswordError(false); }}
+                disabled={isVerifying} className={passwordError ? "border-destructive mt-1.5" : "mt-1.5"}
+                onKeyDown={(e) => { if (e.key === "Enter") handleConfirmDelete(); }} />
+              {passwordError && <p className="text-sm text-destructive mt-1">Senha incorreta</p>}
             </div>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={handleDialogClose} disabled={isVerifying}>Cancelar</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleConfirmDelete}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                disabled={isVerifying}
-              >
-                {isVerifying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Excluir
+              <AlertDialogCancel disabled={isVerifying}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={isVerifying}>
+                {isVerifying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Excluir
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

@@ -33,7 +33,7 @@ interface OrcamentoDetalhe {
 export default function VisaoOrcamento() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const { profile, entidade } = useAuth();
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [loading, setLoading] = useState(true);
   const [orcamento, setOrcamento] = useState<OrcamentoDetalhe | null>(null);
@@ -119,11 +119,22 @@ export default function VisaoOrcamento() {
 
   const handlePasswordConfirm = () => {
     setShowPasswordDialog(false);
+    // Converte itens do banco para formato compatível com RelatorioFinal
+    const itensFormatados = (orcamento?.itens || []).map(i => ({
+      id: i.id,
+      nome: i.nome,
+      descricao: i.descricao,
+      unidade: i.unidade || 'UN',
+      quantidade: i.quantidade,
+      preco: 0, // Preço original não armazenado aqui
+      itensEncontrados: [],
+      fonte: 'Banco de Dados'
+    }));
     navigate("/relatorio-final", {
       state: {
-        itens: orcamento?.itens,
+        itens: itensFormatados,
         nomeOrcamento: orcamento?.nome,
-        entidade: profile?.entidade_id
+        entidade: entidade?.nome || 'Prefeitura'
       }
     });
   };
