@@ -44,6 +44,7 @@ CREATE POLICY "Edição Própria usuários" ON public.usuarios FOR UPDATE USING 
 -- 5. POLÍTICA DE FORNECEDORES
 ALTER TABLE public.fornecedores ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Enable all access for all users" ON public.fornecedores;
+DROP POLICY IF EXISTS "Leitura Fornecedores Próprios ou Globais" ON public.fornecedores;
 CREATE POLICY "Leitura Fornecedores Próprios ou Globais" ON public.fornecedores
     FOR SELECT USING (
         entidade_id IN (SELECT entidade_id FROM public.usuarios WHERE email = auth.jwt() ->> 'email')
