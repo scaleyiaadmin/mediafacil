@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { FileCheck, Building2, Calendar, MapPin, ArrowLeft, Sparkles, ShoppingBag, Loader2 } from "lucide-react";
+import { FileCheck, Building2, Calendar, MapPin, ArrowLeft, Sparkles, Send, FileText, Loader2 } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { PNCPItem } from "@/lib/pncp";
@@ -43,9 +43,9 @@ export default function ResultadoBusca() {
       : (precosUnitarios[meio - 1] + precosUnitarios[meio]) / 2
   );
 
-  const handleFinalizar = async () => {
+  const handleSave = async (status: "waiting_suppliers" | "completed") => {
     if (itensSelecionados.length === 0) {
-      toast.error("Nenhum item para finalizar.");
+      toast.error("Nenhum item para salvar.");
       return;
     }
     setIsFinalizing(true);
@@ -66,20 +66,36 @@ export default function ResultadoBusca() {
           }))
         );
         if (itensErr) throw itensErr;
+
+        // Atualizar status do orçamento
+        const { error: statusErr } = await supabase
+          .from('orcamentos')
+          .update({ status })
+          .eq('id', idFinal);
+        if (statusErr) throw statusErr;
       } else {
-        // Criar novo rascunho com os itens
-        const orc = await createOrcamento(nomeOrcamento, itensSelecionados, [], 'draft');
+        // Criar novo com os itens e status correto
+        const orc = await createOrcamento(nomeOrcamento, itensSelecionados, [], status);
         if (orc) idFinal = orc.id;
       }
 
-      // Navegar para a Cesta de Preços passando os dados
-      navigate("/cesta-precos", {
-        state: {
-          orcamentoId: idFinal,
-          itensSelecionados,
-          nomeOrcamento,
-        }
-      });
+      if (status === "waiting_suppliers") {
+        navigate("/solicitar-fornecedores", {
+          state: {
+            orcamentoId: idFinal,
+            itens: itensSelecionados,
+            nomeOrcamento,
+          }
+        });
+      } else {
+        navigate("/relatorio-final", {
+          state: {
+            orcamentoId: idFinal,
+            itens: itensSelecionados,
+            nomeOrcamento,
+          }
+        });
+      }
     } catch (err: any) {
       toast.error("Erro ao salvar: " + err.message);
     } finally {
@@ -122,16 +138,21 @@ export default function ResultadoBusca() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 w-full md:w-auto">
+          <div className="flex items-center gap-2 w-full md:w-auto">
             <Button
-              className="gap-2 flex-1 md:flex-none h-9 px-4 text-xs font-semibold shadow-sm hover:shadow transition-all"
-              onClick={handleFinalizar}
+              variant="outline"
+              className="gap-2 flex-1 md:flex-none h-9 px-4 text-xs font-semibold shadow-sm"
+              onClick={() => handleSave("waiting_suppliers")}
               disabled={isFinalizing}
             >
-              {isFinalizing
-                ? <><Loader2 className="h-4 w-4 animate-spin" /> Salvando...</>
-                : <><ShoppingBag className="h-3.5 w-3.5" /> Montar Cesta de Preços</>
-              }
+              <Send className="h-3.5 w-3.5" /> Solicitar a Fornecedores
+            </Button>
+            <Button
+              className="gap-2 flex-1 md:flex-none h-9 px-4 text-xs font-semibold shadow-sm"
+              onClick={() => handleSave("completed")}
+              disabled={isFinalizing}
+            >
+              <FileText className="h-3.5 w-3.5" /> Finalizar Orçamento
             </Button>
           </div>
         </div>
