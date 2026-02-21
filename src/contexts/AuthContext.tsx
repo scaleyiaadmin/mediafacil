@@ -40,6 +40,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const fetchProfileAndEntidade = async (supabaseUser: User) => {
         try {
+            console.log("AuthContext: Buscando perfil para", supabaseUser.email);
+
             // 1. Fetch User Profile
             const { data: prof, error: profErr } = await supabase
                 .from('usuarios')
@@ -47,12 +49,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 .eq('email', supabaseUser.email)
                 .single();
 
-            if (profErr) {
-                console.error("Erro ao buscar perfil:", profErr);
+            if (profErr || !prof) {
+                console.error("AuthContext: Erro ao buscar perfil:", profErr);
                 return;
             }
 
             setProfile(prof);
+            console.log("AuthContext: Perfil carregado:", prof.nome, "Entidade ID:", prof.entidade_id);
+
+            // Sincronizar metadados se necessário
+            if (prof.entidade_id && supabaseUser.user_metadata?.entidade_id !== prof.entidade_id) {
+                console.log("AuthContext: Sincronizando metadados da entidade...");
+                await supabase.auth.updateUser({
+                    data: { entidade_id: prof.entidade_id }
+                });
+            }
 
             // 2. Fetch Entity Data
             if (prof.entidade_id) {
@@ -63,13 +74,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     .single();
 
                 if (entErr) {
-                    console.error("Erro ao buscar entidade:", entErr);
+                    console.error("AuthContext: Erro ao buscar entidade:", entErr);
                 } else {
+                    console.log("AuthContext: Entidade carregada:", ent.nome);
                     setEntidade(ent);
                 }
+            } else {
+                console.warn("AuthContext: Usuário sem entidade_id vinculada");
+                setEntidade(null);
             }
         } catch (err) {
-            console.error("Erro inesperado no AuthContext:", err);
+            console.error("AuthContext: Erro inesperado:", err);
         }
     };
 

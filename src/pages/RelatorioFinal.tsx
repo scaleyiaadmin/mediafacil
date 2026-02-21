@@ -323,54 +323,76 @@ export default function RelatorioFinal() {
             <h2 className="text-lg font-semibold mb-4">Itens Pesquisados</h2>
 
             <div className="space-y-6">
-              {relatorioData.itens.map((item) => (
-                <div key={item.id} className="rounded-lg border border-gray-300 overflow-hidden break-inside-avoid">
-                  {/* Header do item */}
-                  <div className="bg-gray-100 px-4 py-3 border-b border-gray-300">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-bold text-gray-900">{item.nome}</p>
-                        <p className="text-sm text-gray-600">
-                          {item.quantidade} {item.unidade}
-                        </p>
+              {relatorioData.itens.map((item) => {
+                const totalItem = (item.media || 0) * (item.quantidade || 1);
+                return (
+                  <div key={item.id} className="rounded-lg border border-gray-300 overflow-hidden break-inside-avoid">
+                    {/* Header do item */}
+                    <div className="bg-gray-100 px-4 py-3 border-b border-gray-300">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-bold text-gray-900">{item.nome}</p>
+                          <p className="text-sm text-gray-600">
+                            {item.quantidade} {item.unidade}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-gray-500 uppercase">Média Unitária</p>
+                          <p className="font-bold text-gray-900 text-lg">
+                            R$ {Number(item.media).toFixed(2)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Preços por fonte */}
+                    <div className="divide-y divide-gray-200 bg-white">
+                      {item.precos.map((preco, index) => (
+                        <div key={index} className="flex items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                          <span className="font-medium text-gray-600">{preco.fonte}</span>
+                          <span className="font-semibold text-gray-800">R$ {Number(preco.valor).toFixed(2)}</span>
+                        </div>
+                      ))}
+                      {item.precos.length === 0 && (
+                        <div className="px-4 py-3 text-sm text-gray-500 italic">
+                          Nenhum preço encontrado nas bases consultadas.
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Média, mediana e Total */}
+                    <div className="bg-gray-50 px-4 py-3 flex items-center justify-between text-sm border-t border-gray-200">
+                      <div className="flex gap-4">
+                        <div>
+                          <span className="text-gray-600">Média: </span>
+                          <span className="font-bold text-gray-900">R$ {Number(item.media).toFixed(2)}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Mediana: </span>
+                          <span className="font-bold text-gray-900">R$ {Number(item.mediana).toFixed(2)}</span>
+                        </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-xs text-gray-500 uppercase">Média Unitária</p>
-                        <p className="font-bold text-gray-900 text-lg">
-                          R$ {Number(item.media).toFixed(2)}
-                        </p>
+                        <span className="text-gray-600">Total do Item: </span>
+                        <span className="font-bold text-emerald-700">R$ {totalItem.toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
+                );
+              })}
 
-                  {/* Preços por fonte */}
-                  <div className="divide-y divide-gray-200 bg-white">
-                    {item.precos.map((preco, index) => (
-                      <div key={index} className="flex items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                        <span className="font-medium text-gray-600">{preco.fonte}</span>
-                        <span className="font-semibold text-gray-800">R$ {Number(preco.valor).toFixed(2)}</span>
-                      </div>
-                    ))}
-                    {item.precos.length === 0 && (
-                      <div className="px-4 py-3 text-sm text-gray-500 italic">
-                        Nenhum preço encontrado nas bases consultadas.
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Média e mediana */}
-                  <div className="bg-gray-50 px-4 py-3 flex items-center justify-between text-sm border-t border-gray-200">
-                    <div>
-                      <span className="text-gray-600">Média: </span>
-                      <span className="font-bold text-gray-900">R$ {Number(item.media).toFixed(2)}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Mediana: </span>
-                      <span className="font-bold text-gray-900">R$ {Number(item.mediana).toFixed(2)}</span>
-                    </div>
-                  </div>
+              {/* VALOR TOTAL GERAL DO RELATÓRIO */}
+              <div className="mt-8 p-6 bg-emerald-50 rounded-lg border-2 border-emerald-200 flex justify-between items-center">
+                <div className="space-y-1">
+                  <h3 className="text-lg font-bold text-emerald-900">Valor Total Estimado</h3>
+                  <p className="text-sm text-emerald-700">Soma de todos os itens considerando a média unitária</p>
                 </div>
-              ))}
+                <div className="text-right">
+                  <p className="text-3xl font-black text-emerald-900">
+                    R$ {relatorioData.itens.reduce((acc, item) => acc + (item.media * item.quantidade), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 

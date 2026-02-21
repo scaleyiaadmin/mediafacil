@@ -4,15 +4,34 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { PNCPItem } from "@/lib/pncp";
 
+interface ItemSelecionado extends PNCPItem {
+  quantidade: number;
+}
+
 export default function ResultadoBusca() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const itensSelecionados = (location.state?.itensSelecionados as PNCPItem[]) || [];
+  const itensSelecionados = (location.state?.itensSelecionados as ItemSelecionado[]) || [];
   const nomeOrcamento = location.state?.nomeOrcamento || "Orçamento";
 
   const totalSelecionados = itensSelecionados.length;
-  const valorTotal = itensSelecionados.reduce((acc, item) => acc + (item.preco || 0), 0);
+
+  // Cálculo do Valor Total considerando QUANTIDADE
+  const valorTotal = itensSelecionados.reduce((acc, item) =>
+    acc + ((item.preco || 0) * (item.quantidade || 1)), 0);
+
+  // Estatísticas dos Preços Unitários
+  const precosUnitarios = itensSelecionados.map(i => i.preco || 0).sort((a, b) => a - b);
+  const somaUnitarios = precosUnitarios.reduce((a, b) => a + b, 0);
+  const mediaUnitaria = precosUnitarios.length > 0 ? somaUnitarios / precosUnitarios.length : 0;
+
+  const meio = Math.floor(precosUnitarios.length / 2);
+  const medianaUnitaria = precosUnitarios.length === 0 ? 0 : (
+    precosUnitarios.length % 2 !== 0
+      ? precosUnitarios[meio]
+      : (precosUnitarios[meio - 1] + precosUnitarios[meio]) / 2
+  );
 
   return (
     <MainLayout title="Resumo da Seleção" subtitle={nomeOrcamento}>
@@ -31,13 +50,21 @@ export default function ResultadoBusca() {
             <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 text-primary">
               <FileCheck className="h-7 w-7" />
             </div>
-            <div>
+            <div className="flex-1">
               <p className="font-bold text-foreground text-lg">
                 {totalSelecionados} itens consolidados
               </p>
-              <p className="text-sm text-muted-foreground">
-                Total Estimado: <span className="font-semibold text-primary">R$ {valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-              </p>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
+                <p className="text-sm text-muted-foreground">
+                  Média: <span className="font-medium text-foreground">R$ {mediaUnitaria.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Mediana: <span className="font-medium text-foreground">R$ {medianaUnitaria.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                </p>
+                <p className="text-sm text-primary font-bold">
+                  Total Geral: R$ {valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </p>
+              </div>
             </div>
           </div>
 
@@ -46,7 +73,13 @@ export default function ResultadoBusca() {
               className="gap-2 flex-1 md:flex-none h-11 px-6 shadow-md hover:shadow-lg transition-all"
               onClick={() => navigate("/relatorio-final", {
                 state: {
-                  itens: itensSelecionados.map(i => ({ ...i, itensEncontrados: [i], loading: false, error: false })),
+                  itens: itensSelecionados.map(i => ({
+                    ...i,
+                    itensEncontrados: [i],
+                    loading: false,
+                    error: false,
+                    quantidade: i.quantidade || 1
+                  })),
                   entidade: "Prefeitura Municipal",
                   responsavel: "Usuário",
                   nomeOrcamento
@@ -94,6 +127,8 @@ export default function ResultadoBusca() {
                   badgeDot = "bg-zinc-500";
                 }
 
+                const totalPorItem = (item.preco || 0) * (item.quantidade || 1);
+
                 return (
                   <div key={item.id} className="rounded-xl border border-border bg-card p-5 shadow-sm hover:shadow-md transition-all">
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
@@ -109,15 +144,21 @@ export default function ResultadoBusca() {
                               {item.metadata}
                             </span>
                           )}
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800 uppercase tracking-wider">
+                            Qtd: {item.quantidade || 1}
+                          </span>
                         </div>
                         <p className="font-bold text-foreground text-lg leading-tight">{item.nome}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-2xl font-black text-emerald-600">
-                          R$ {item.preco?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        <p className="text-xs text-muted-foreground font-medium uppercase mb-1">
+                          Total do Item
                         </p>
-                        <p className="text-xs text-muted-foreground font-medium uppercase mt-1">
-                          Preço Referencial
+                        <p className="text-2xl font-black text-emerald-600">
+                          R$ {totalPorItem.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          (R$ {item.preco?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / un)
                         </p>
                       </div>
                     </div>
