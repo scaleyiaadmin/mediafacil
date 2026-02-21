@@ -44,7 +44,6 @@ const loadingSteps = [
 export default function NovoOrcamento() {
   const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const [nameDialogOpen, setNameDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
@@ -186,11 +185,6 @@ export default function NovoOrcamento() {
     }
   };
 
-  const handleContinuarImportacao = () => {
-    setReviewDialogOpen(false);
-    toast.success("Itens importados com sucesso!");
-    navigate("/resultado-busca");
-  };
 
   const handleStartBudget = (method: "import" | "manual") => {
     setSelectedMethod(method);
@@ -462,62 +456,6 @@ export default function NovoOrcamento() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog de Revisão com Scroll */}
-      <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-success" />
-              Itens Encontrados
-            </DialogTitle>
-            <DialogDescription>
-              {itensImportados.length} itens foram identificados na planilha. Revise antes de continuar.
-            </DialogDescription>
-          </DialogHeader>
-
-          <ScrollArea className="flex-1 -mx-6 px-6">
-            <div className="space-y-3 py-4">
-              {itensImportados.map((item) => (
-                <div
-                  key={item.id}
-                  className="rounded-lg border border-border p-4 hover:bg-muted/50 transition-colors"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-foreground text-sm">
-                        {item.nome}
-                      </h4>
-                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                        {item.descricao}
-                      </p>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <div className="text-sm font-medium text-foreground">
-                        {item.quantidade} {item.unidade}
-                      </div>
-                      {item.correspondencia && (
-                        <div className="text-xs text-success mt-1">
-                          {item.correspondencia}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </ScrollArea>
-
-          <div className="flex justify-end gap-3 pt-4 border-t border-border">
-            <Button variant="outline" onClick={() => setReviewDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button className="gap-2" onClick={handleContinuarImportacao}>
-              Continuar
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </MainLayout>
   );
 }
