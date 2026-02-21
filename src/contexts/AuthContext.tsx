@@ -90,7 +90,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     setProfile(null);
                     setEntidade(null);
                     setUser(null);
-                    setLoading(false);
                 }
                 return;
             }
@@ -98,29 +97,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (isMounted) {
                 setUser(currentUser);
                 await fetchProfileAndEntidade(currentUser);
-                setLoading(false);
             }
         };
 
         // Initial session check
         const initSession = async () => {
             try {
+                console.log("AuthContext: Iniciando recuperação de sessão...");
                 const { data: { session } } = await supabase.auth.getSession();
-                console.log("AuthContext: Sessão inicial carregada:", !!session);
-                await handleAuthChange(session);
+
+                if (session) {
+                    await handleAuthChange(session);
+                } else {
+                    console.log("AuthContext: Nenhuma sessão ativa encontrada.");
+                }
             } catch (err) {
-                console.error("AuthContext: Erro ao carregar sessão inicial:", err);
-                if (isMounted) setLoading(false);
+                console.error("AuthContext: Erro na inicialização:", err);
+            } finally {
+                if (isMounted) {
+                    console.log("AuthContext: Inicialização concluída.");
+                    setLoading(false);
+                }
             }
         };
 
         initSession();
 
-        // Listen for auth changes after initial check
+        // Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-            console.log("AuthContext: Evento de auth recebido:", _event);
-            if (_event === 'SIGNED_IN' || _event === 'SIGNED_OUT' || _event === 'USER_UPDATED' || _event === 'TOKEN_REFRESHED') {
+            console.log("AuthContext: Evento onAuthStateChange:", _event);
+
+            if (_event === 'SIGNED_IN' || _event === 'TOKEN_REFRESHED' || _event === 'USER_UPDATED') {
                 await handleAuthChange(session);
+            } else if (_event === 'SIGNED_OUT') {
+                setProfile(null);
+                setEntidade(null);
+                setUser(null);
+                setLoading(false);
             }
         });
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,14 +16,17 @@ export default function Login() {
     const navigate = useNavigate();
     const { user, loading: authLoading, signIn } = useAuth();
 
+    const location = useLocation();
+
     // Redireciona automaticamente se o usuário já estiver logado (ou após o login)
     // Esperamos o authLoading ser false para garantir que o perfil foi carregado
     useEffect(() => {
         if (user && !authLoading) {
-            console.log("Login: Usuário detectado e carregamento concluído. Navegando para /");
-            navigate("/", { replace: true });
+            const from = (location.state as any)?.from?.pathname || "/dashboard";
+            console.log(`Login: Usuário detectado. Redirecionando de ${location.pathname} para ${from}`);
+            navigate(from, { replace: true });
         }
-    }, [user, authLoading, navigate]);
+    }, [user, authLoading, navigate, location]);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
