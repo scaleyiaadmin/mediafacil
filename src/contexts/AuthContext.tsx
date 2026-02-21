@@ -25,6 +25,7 @@ interface AuthContextType {
     profile: Usuario | null;
     entidade: Entidade | null;
     loading: boolean;
+    signIn: (email: string, password: string) => Promise<void>;
     signOut: () => Promise<void>;
     refreshProfile: () => Promise<void>;
 }
@@ -106,11 +107,77 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return () => subscription.unsubscribe();
     }, []);
 
+    const signIn = async (email: string, password: string) => {
+        setLoading(true);
+        try {
+            console.log("AuthProvider: Iniciando login para", email);
+
+            // 1. Verificar se o usuário existe na tabela pública e conferir a senha
+            const { data: dbUser, error: dbError } = await supabase
+                .from('usuarios')
+                .select('*')
+                .eq('email', email.trim())
+                .single();
+
+            if (dbError || !dbUser) {
+                throw new Error("Usuário não encontrado em nossa base de dados.");
+            }
+
+            if (dbUser.senha !== password) {
+                throw new Error("E-mail ou senha incorretos.");
+            }
+
+            // 2. Tentar login no Supabase Auth
+            const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+                email: email.trim(),
+                password,
+            });
+
+            let authenticatedUser = authData.user;
+
+            // 3. Se falhar no Auth, tentar cadastro silencioso
+            if (authError) {
+                console.warn("AuthProvider: signIn falhou, tentando signUp silencioso:", authError.message);
+
+                const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+                    email: email.trim(),
+                    password,
+                    options: {
+                        data: {
+                            nome: dbUser.nome,
+                            entidade_id: dbUser.entidade_id,
+                        }
+                    }
+                });
+
+                if (signUpError) {
+                    if (signUpError.message.includes("already registered")) {
+                        throw new Error("Erro de sincronização. Sua senha na tabela não confere com o acesso seguro.");
+                    }
+                    throw signUpError;
+                }
+                authenticatedUser = signUpData.user;
+            }
+
+            if (authenticatedUser) {
+                setUser(authenticatedUser);
+                await fetchProfileAndEntidade(authenticatedUser);
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const signOut = async () => {
-        await supabase.auth.signOut();
-        setUser(null);
-        setProfile(null);
-        setEntidade(null);
+        setLoading(true);
+        try {
+            await supabase.auth.signOut();
+            setUser(null);
+            setProfile(null);
+            setEntidade(null);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const refreshProfile = async () => {
@@ -120,7 +187,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     return (
-        <AuthContext.Provider value={{ user, profile, entidade, loading, signOut, refreshProfile }}>
+        <AuthContext.Provider value={{ user, profile, entidade, loading, signIn, signOut, refreshProfile }}>
             {children}
         </AuthContext.Provider>
     );

@@ -12,80 +12,31 @@ import { useAuth } from "@/contexts/AuthContext";
 export default function Login() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const [loading, setLoading] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, loading: authLoading, signIn } = useAuth();
 
     // Redireciona automaticamente se o usuário já estiver logado (ou após o login)
+    // Esperamos o authLoading ser false para garantir que o perfil foi carregado
     useEffect(() => {
-        if (user) {
+        if (user && !authLoading) {
+            console.log("Login: Usuário detectado e carregamento concluído. Navegando para /");
             navigate("/", { replace: true });
         }
-    }, [user, navigate]);
+    }, [user, authLoading, navigate]);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-        setLoading(true);
+        setIsSubmitting(true);
 
         try {
-            console.log("Iniciando processo de login para:", email);
-
-            // 1. Verificar se o usuário existe na tabela pública e conferir a senha
-            const { data: dbUser, error: dbError } = await supabase
-                .from('usuarios')
-                .select('*')
-                .eq('email', email)
-                .single();
-
-            if (dbError || !dbUser) {
-                throw new Error("Usuário não encontrado em nossa base de dados.");
-            }
-
-            // Conferencia de senha simples (vulnerável, mas seguindo a lógica da tabela atual)
-            if (dbUser.senha !== password) {
-                throw new Error("E-mail ou senha incorretos.");
-            }
-
-            console.log("Usuário validado na tabela pública. Autenticando no Supabase Auth...");
-
-            // 2. Tentar login no Supabase Auth
-            const { error: authError } = await supabase.auth.signInWithPassword({
-                email,
-                password,
-            });
-
-            // 3. Se falhar no Auth (provavelmente usuário não existe no Auth), tentar cadastro silencioso
-            if (authError) {
-                console.warn("Falha no signInWithPassword, tentando signUp silencioso:", authError.message);
-
-                const { error: signUpError } = await supabase.auth.signUp({
-                    email,
-                    password,
-                    options: {
-                        data: {
-                            nome: dbUser.nome,
-                            entidade_id: dbUser.entidade_id,
-                        }
-                    }
-                });
-
-                if (signUpError) {
-                    if (signUpError.message.includes("already registered")) {
-                        throw new Error("Erro de sincronização. Sua senha na tabela não confere com o acesso seguro. Contate o administrador.");
-                    }
-                    throw signUpError;
-                }
-
-                console.log("SignUp silencioso realizado.");
-            }
-
+            await signIn(email, password);
             toast.success("Login realizado com sucesso!");
-            // O useEffect cuidará da navegação assim que o AuthContext atualizar
         } catch (error: any) {
             console.error("Erro no login:", error);
             toast.error(error.message || "Erro inesperado ao fazer login");
         } finally {
-            setLoading(false);
+            setIsSubmitting(false);
         }
     };
 
@@ -141,8 +92,8 @@ export default function Login() {
                             </div>
                         </CardContent>
                         <CardFooter>
-                            <Button type="submit" className="w-full font-bold h-11" disabled={loading}>
-                                {loading ? (
+                            <Button type="submit" className="w-full font-bold h-11" disabled={isSubmitting}>
+                                {isSubmitting ? (
                                     <>
                                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                         Entrando...
