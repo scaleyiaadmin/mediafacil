@@ -266,7 +266,7 @@ export default function SelecaoItensImportados() {
                                             </Button>
                                         </div>
 
-                                        <ScrollArea className="max-h-[400px]">
+                                        <ScrollArea className="max-h-[550px] overflow-y-auto custom-scrollbar">
                                             <div className="divide-y">
                                                 {group.results.length === 0 ? (
                                                     <div className="p-8 text-center text-muted-foreground italic space-y-2">

@@ -137,29 +137,38 @@ export default function NovoOrcamento() {
         setLoadingStep(1); // Analisando itens
 
         // Busca massiva em todas as fontes
-        const itemsWithResults = [];
+        // Busca massiva em todas as fontes (Processamento em Lote para velocidade)
+        const itemsWithResults: any[] = [];
         const totalItems = itemsFromExcel.length;
+        const batchSize = 5; // Processar 5 itens por vez em paralelo
 
-        for (let i = 0; i < totalItems; i++) {
-          const item = itemsFromExcel[i];
+        for (let i = 0; i < totalItems; i += batchSize) {
+          const batch = itemsFromExcel.slice(i, i + batchSize);
 
           // Atualizar progresso visualmente conforme caminha
           const currentProgress = 30 + Math.floor((i / totalItems) * 60);
           setProgress(currentProgress);
-          if (i === Math.floor(totalItems / 3)) setLoadingStep(2); // Correspondências
-          if (i === Math.floor(totalItems / 1.5)) setLoadingStep(3); // Preços
 
-          const results = await searchAllSources(item.nome, {
-            includePNCP: true,
-            includeBPS: true,
-            includeSINAPI: true,
-            includeCATSER: true
+          if (i === 0) setLoadingStep(2); // Correspondências
+          if (i >= totalItems / 2) setLoadingStep(3); // Preços
+
+          // Executar busca do lote em paralelo
+          const batchPromises = batch.map(async (item) => {
+            const results = await searchAllSources(item.nome, {
+              includePNCP: true,
+              includeBPS: true,
+              includeSINAPI: true,
+              includeCATSER: true
+            }, true); // fastModeFlag = true (Apenas banco local para velocidade máxima)
+
+            return {
+              original: item,
+              results: results
+            };
           });
 
-          itemsWithResults.push({
-            original: item,
-            results: results
-          });
+          const batchResults = await Promise.all(batchPromises);
+          itemsWithResults.push(...batchResults);
         }
 
         setProgress(100);

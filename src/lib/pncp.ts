@@ -59,7 +59,7 @@ export async function searchLocalPNCP(termo: string): Promise<PNCPItem[]> {
  * 1. Busca primeiro no banco local (instantâneo).
  * 2. Se trouxer poucos resultados, busca na API do governo (lento mas atualizado).
  */
-export async function searchPNCPItems(termo: string): Promise<PNCPItem[]> {
+export async function searchPNCPItems(termo: string, fastMode = false): Promise<PNCPItem[]> {
     if (!termo || termo.length < 3) return [];
 
     try {
@@ -68,9 +68,10 @@ export async function searchPNCPItems(termo: string): Promise<PNCPItem[]> {
         // 1. Tentar busca local primeiro
         const localResults = await searchLocalPNCP(termo);
 
-        // Se já temos resultados suficientes (ex: 8+), retornamos apenas eles para privilegiar velocidade
-        if (localResults.length >= 8) {
-            console.log(`[PNCP] Busca local satisfatória: ${localResults.length} itens.`);
+        // Se estivermos em modo rápido ou já temos resultados suficientes (3+), retornar apenas locais
+        const threshold = 3;
+        if (fastMode || localResults.length >= threshold) {
+            console.log(`[PNCP] Busca finalizada (Modo: ${fastMode ? 'Turbo' : 'Threshold'}): ${localResults.length} itens.`);
             return localResults;
         }
 

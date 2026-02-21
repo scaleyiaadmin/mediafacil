@@ -18,7 +18,7 @@ const dicionarioSinonimos: Record<string, string[]> = {
     "limpeza": ["detergente", "desinfetante", "sabão", "higiene"]
 };
 
-export async function searchAllSources(termo: string, filters: SearchFilters): Promise<PNCPItem[]> {
+export async function searchAllSources(termo: string, filters: SearchFilters, fastMode = false): Promise<PNCPItem[]> {
     if (!termo || termo.length < 3) return [];
 
     const termoLower = termo.toLowerCase();
@@ -37,7 +37,7 @@ export async function searchAllSources(termo: string, filters: SearchFilters): P
 
     // 1. PNCP (Sempre busca se selecionado)
     if (filters.includePNCP) {
-        searchPromises.push(...buscaTermos.map(t => searchPNCPItems(t)));
+        searchPromises.push(...buscaTermos.map(t => searchPNCPItems(t, fastMode)));
     }
 
     // 2. Referências Reais (Supabase)
