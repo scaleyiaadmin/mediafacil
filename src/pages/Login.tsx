@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
@@ -7,12 +7,21 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Loader2, Lock, Mail } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Login() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
+    const { user } = useAuth();
+
+    // Redireciona automaticamente se o usuário já estiver logado (ou após o login)
+    useEffect(() => {
+        if (user) {
+            navigate("/", { replace: true });
+        }
+    }, [user, navigate]);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -61,8 +70,6 @@ export default function Login() {
                 });
 
                 if (signUpError) {
-                    // Se o erro for de usuário já existe, e mesmo assim falhou o login, 
-                    // pode ser uma discrepância de senhas entre a tabela e o auth.
                     if (signUpError.message.includes("already registered")) {
                         throw new Error("Erro de sincronização. Sua senha na tabela não confere com o acesso seguro. Contate o administrador.");
                     }
@@ -73,7 +80,7 @@ export default function Login() {
             }
 
             toast.success("Login realizado com sucesso!");
-            navigate("/");
+            // O useEffect cuidará da navegação assim que o AuthContext atualizar
         } catch (error: any) {
             console.error("Erro no login:", error);
             toast.error(error.message || "Erro inesperado ao fazer login");

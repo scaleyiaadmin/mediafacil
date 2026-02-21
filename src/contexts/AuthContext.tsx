@@ -85,6 +85,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+            setLoading(true); // Garante que rotas protegidas aguardem o processamento
             const currentUser = session?.user ?? null;
 
             // If user logged out or changed, reset profile first
