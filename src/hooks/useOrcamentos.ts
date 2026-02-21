@@ -101,7 +101,7 @@ export function useOrcamentos() {
                     usuario_id: usuarioId, // Auth ID
                     data_solicitacao: new Date().toISOString(),
                     links_enviados: fornecedores.length,
-                    orcamentos_rece_bidos: 0
+                    orcamentos_recebidos: 0
                 })
                 .select()
                 .single();

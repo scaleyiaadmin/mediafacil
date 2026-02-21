@@ -11,6 +11,7 @@ interface ItemSelecionado extends PNCPItem {
 export default function ResultadoBusca() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { profile, entidade } = useAuth();
 
   const itensSelecionados = (location.state?.itensSelecionados as ItemSelecionado[]) || [];
   const nomeOrcamento = location.state?.nomeOrcamento || "Orçamento";
@@ -80,8 +81,8 @@ export default function ResultadoBusca() {
                     error: false,
                     quantidade: i.quantidade || 1
                   })),
-                  entidade: "Prefeitura Municipal",
-                  responsavel: "Usuário",
+                  entidade: entidade?.nome || "Prefeitura Municipal",
+                  responsavel: profile?.nome || "Usuário",
                   nomeOrcamento
                 }
               })}
