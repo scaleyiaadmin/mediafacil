@@ -26,43 +26,47 @@ import PropostaFornecedor from "./pages/PropostaFornecedor";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
+import { AuthProvider } from "@/contexts/AuthContext";
+
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <SupportModeProvider>
-        <SidebarProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/novo-orcamento" element={<NovoOrcamento />} />
-              <Route path="/buscar-itens" element={<BuscarItens />} />
-              <Route path="/buscar-itens-manual" element={<BuscarItensManual />} />
-              <Route path="/configurar-busca" element={<ConfigurarBusca />} />
-              <Route path="/resultado-busca" element={<ResultadoBusca />} />
-              <Route path="/solicitar-fornecedores" element={<SolicitarFornecedores />} />
-              <Route path="/orcamento/:id" element={<VisaoOrcamento />} />
-              <Route path="/relatorio-final" element={<RelatorioFinal />} />
-              <Route path="/orcamentos" element={<ListaOrcamentos />} />
-              <Route path="/fornecedores" element={<Fornecedores />} />
-              <Route path="/perfil-configuracoes" element={<PerfilConfiguracoes />} />
-              {/* Admin Routes */}
-              <Route path="/admin" element={<AdminDashboard />} />
-              <Route path="/admin/entidades" element={<AdminEntidades />} />
-              <Route path="/admin/usuarios" element={<AdminUsuarios />} />
-              <Route path="/admin/tabelas" element={<AdminTabelas />} />
-              <Route path="/admin/fornecedores" element={<AdminFornecedores />} />
-              {/* Proposta Digital do Fornecedor (acesso via link) */}
-              <Route path="/proposta/:token" element={<PropostaFornecedor />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </SidebarProvider>
-      </SupportModeProvider>
+      <AuthProvider>
+        <SupportModeProvider>
+          <SidebarProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/novo-orcamento" element={<NovoOrcamento />} />
+                <Route path="/buscar-itens" element={<BuscarItens />} />
+                <Route path="/buscar-itens-manual" element={<BuscarItensManual />} />
+                <Route path="/configurar-busca" element={<ConfigurarBusca />} />
+                <Route path="/resultado-busca" element={<ResultadoBusca />} />
+                <Route path="/solicitar-fornecedores" element={<SolicitarFornecedores />} />
+                <Route path="/orcamento/:id" element={<VisaoOrcamento />} />
+                <Route path="/relatorio-final" element={<RelatorioFinal />} />
+                <Route path="/orcamentos" element={<ListaOrcamentos />} />
+                <Route path="/fornecedores" element={<Fornecedores />} />
+                <Route path="/perfil-configuracoes" element={<PerfilConfiguracoes />} />
+                {/* Admin Routes */}
+                <Route path="/admin" element={<AdminDashboard />} />
+                <Route path="/admin/entidades" element={<AdminEntidades />} />
+                <Route path="/admin/usuarios" element={<AdminUsuarios />} />
+                <Route path="/admin/tabelas" element={<AdminTabelas />} />
+                <Route path="/admin/fornecedores" element={<AdminFornecedores />} />
+                {/* Proposta Digital do Fornecedor (acesso via link) */}
+                <Route path="/proposta/:token" element={<PropostaFornecedor />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          </SidebarProvider>
+        </SupportModeProvider>
+      </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

@@ -5,7 +5,7 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useOrcamentos } from "@/hooks/useOrcamentos";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
@@ -62,12 +62,12 @@ export default function RelatorioFinal() {
   const navigate = useNavigate();
   const reportRef = useRef<HTMLDivElement>(null);
   const { createOrcamento } = useOrcamentos();
+  const { profile, entidade } = useAuth();
 
-  const [responsavelName, setResponsavelName] = useState(defaultRelatorioData.responsavel);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isNameDialogOpen, setIsNameDialogOpen] = useState(false);
   const [orcamentoNome, setOrcamentoNome] = useState("");
   const [saveStatus, setSaveStatus] = useState<"draft" | "waiting_suppliers" | "completed">("draft");
+  const [isSaving, setIsSaving] = useState(false);
+  const [isNameDialogOpen, setIsNameDialogOpen] = useState(false);
 
   const state = location.state as {
     itens?: any[],
@@ -78,37 +78,6 @@ export default function RelatorioFinal() {
   } | undefined;
 
   useEffect(() => {
-    async function getUserParam() {
-      const { data: { user } } = await supabase.auth.getUser();
-
-      let foundName = null;
-
-      if (user?.email) {
-        // Try to find in public.usuarios
-        const { data: publicUser } = await supabase
-          .from('usuarios')
-          .select('nome')
-          .eq('email', user.email)
-          .single();
-
-        if (publicUser?.nome) {
-          foundName = publicUser.nome;
-        } else if (user.user_metadata?.nome) {
-          foundName = user.user_metadata.nome;
-        } else {
-          // Fallback to email username
-          foundName = user.email.split('@')[0];
-        }
-      }
-
-      if (foundName) {
-        setResponsavelName(foundName);
-      } else if (state?.responsavel) {
-        setResponsavelName(state.responsavel);
-      }
-    }
-    getUserParam();
-
     // Set default name suggestion
     if (state?.nomeOrcamento) {
       setOrcamentoNome(state.nomeOrcamento);
@@ -117,7 +86,6 @@ export default function RelatorioFinal() {
     } else {
       setOrcamentoNome(`Orçamento - ${new Date().toLocaleDateString()}`);
     }
-
   }, [state]);
 
   // Processar dados
@@ -125,8 +93,8 @@ export default function RelatorioFinal() {
 
   const relatorioData = {
     ...defaultRelatorioData,
-    entidade: state?.entidade || defaultRelatorioData.entidade,
-    responsavel: responsavelName,
+    entidade: entidade?.nome || state?.entidade || defaultRelatorioData.entidade,
+    responsavel: profile?.nome || state?.responsavel || defaultRelatorioData.responsavel,
     dataRelatorio: new Date().toLocaleDateString('pt-BR'),
     fornecedoresSolicitados: fornecedoresNomes,
     itens: state?.itens ? state.itens.map(item => {
