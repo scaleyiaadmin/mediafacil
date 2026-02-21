@@ -42,62 +42,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
             console.log("AuthContext: Buscando perfil para", supabaseUser.email);
 
-            // 1. Fetch User Profile
+            // Busca o perfil e os dados da entidade em uma única query (JOIN)
             const { data: prof, error: profErr } = await supabase
                 .from('usuarios')
-                .select('*')
+                .select('*, entidades(*)')
                 .eq('email', supabaseUser.email)
                 .single();
 
             if (profErr || !prof) {
-                console.error("AuthContext: Erro ao buscar perfil:", profErr);
+                console.error("AuthContext: Erro ao buscar perfil:", profErr?.message);
                 return;
             }
 
-            setProfile(prof);
-            console.log("AuthContext: Perfil carregado:", prof.nome, "Entidade ID:", prof.entidade_id);
+            // Separar os dados de entidade dos do perfil
+            const entidadeData = (prof as any).entidades || null;
+            const profileData = { ...prof };
+            delete (profileData as any).entidades;
 
-            // Sincronizar metadados se necessário (importante para RLS)
-            if (prof.entidade_id && supabaseUser.user_metadata?.entidade_id !== prof.entidade_id) {
-                console.log("AuthContext: Sincronizando metadados da entidade (user_metadata)...");
-                const { error: updateErr } = await supabase.auth.updateUser({
-                    data: { entidade_id: prof.entidade_id }
-                });
+            setProfile(profileData);
+            console.log("AuthContext: Perfil carregado:", prof.nome, "| Entidade ID:", prof.entidade_id);
 
-                if (updateErr) {
-                    console.error("AuthContext: Erro ao sincronizar metadados:", updateErr);
-                } else {
-                    console.log("AuthContext: Metadados sincronizados com sucesso.");
-                }
+            if (entidadeData) {
+                console.log("AuthContext: Entidade carregada via JOIN:", entidadeData.nome);
+                setEntidade(entidadeData);
+            } else {
+                console.warn("AuthContext: Entidade não retornada pelo JOIN. Verificar se entidade_id está preenchido no banco.");
+                setEntidade(null);
             }
 
-            // 2. Fetch Entity Data
-            if (prof.entidade_id) {
-                console.log("AuthContext: Buscando dados da entidade", prof.entidade_id);
-                try {
-                    const { data: ent, error: entErr } = await supabase
-                        .from('entidades')
-                        .select('*')
-                        .eq('id', prof.entidade_id)
-                        .single();
-
-                    if (entErr) {
-                        console.error("AuthContext: Falha ao carregar entidade (RLS ou ID inexistente):", entErr.message);
-                        setEntidade(null);
-                    } else if (ent) {
-                        console.log("AuthContext: Entidade carregada com sucesso:", ent.nome);
-                        setEntidade(ent);
-                    } else {
-                        console.warn("AuthContext: Entidade retornou vazia (não encontrada).");
-                        setEntidade(null);
-                    }
-                } catch (err) {
-                    console.error("AuthContext: Erro de rede/supbase ao buscar entidade:", err);
-                    setEntidade(null);
-                }
-            } else {
-                console.warn("AuthContext: Usuário sem entidade_id vinculada no perfil público.");
-                setEntidade(null);
+            // Sincronizar metadados do Auth se necessário
+            if (prof.entidade_id && supabaseUser.user_metadata?.entidade_id !== prof.entidade_id) {
+                await supabase.auth.updateUser({ data: { entidade_id: prof.entidade_id } });
             }
         } catch (err) {
             console.error("AuthContext: Erro inesperado:", err);
