@@ -31,11 +31,11 @@ const fontes = [
   { id: "bps", nome: "BPS", descricao: "Banco de Preços em Saúde" },
   { id: "cmed", nome: "CMED", descricao: "Câmara de Regulação do Mercado de Medicamentos" },
   { id: "sinapi", nome: "SINAPI", descricao: "Construção Civil" },
-  { id: "setop", nome: "SETOP", descricao: "Obras Públicas", emBreve: true },
-  { id: "ceasa", nome: "CEASA", descricao: "Hortifruti", emBreve: true },
+  { id: "setop", nome: "SETOP", descricao: "Obras Públicas" },
   { id: "nfe", nome: "BANCO DE NFe", descricao: "Notas Fiscais Eletrônicas" },
-  { id: "simpro", nome: "SIMPRO", descricao: "Tabela de Insumos Hospitalares", emBreve: true },
-  { id: "sigtap", nome: "SIGTAP", descricao: "Tabela de Procedimentos SUS", emBreve: true },
+  { id: "simpro", nome: "SIMPRO", descricao: "Tabela de Insumos Hospitalares" },
+  { id: "sigtap", nome: "SIGTAP", descricao: "Tabela de Procedimentos SUS" },
+  { id: "ceasa", nome: "CEASA", descricao: "Hortifruti", emBreve: true },
   { id: "licitacoes", nome: "LICITAÇÕES SIMILARES", descricao: "Dados de Processos Licitatórios", emBreve: true },
 ];
 
@@ -117,10 +117,14 @@ export default function BuscarItensManual() {
           const refFilters = {
             catser: fontesSelecionadas.includes("catser"),
             sinapi: fontesSelecionadas.includes("sinapi"),
-            cmed: fontesSelecionadas.includes("cmed") || fontesSelecionadas.includes("bps")
+            cmed: fontesSelecionadas.includes("cmed") || fontesSelecionadas.includes("bps"),
+            setop: fontesSelecionadas.includes("setop"),
+            simpro: fontesSelecionadas.includes("simpro"),
+            sigtap: fontesSelecionadas.includes("sigtap"),
+            nfe: fontesSelecionadas.includes("nfe")
           };
 
-          if (refFilters.catser || refFilters.sinapi || refFilters.cmed) {
+          if (Object.values(refFilters).some(v => v)) {
             promises.push(searchReferences(searchTerm, refFilters));
           } else {
             promises.push(Promise.resolve([]));

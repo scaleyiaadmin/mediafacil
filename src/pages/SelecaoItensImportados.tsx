@@ -286,9 +286,18 @@ export default function SelecaoItensImportados() {
                                                         } else if (result.fonte.includes("SINAPI")) {
                                                             badgeColor = "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-100";
                                                             badgeDot = "bg-green-500";
-                                                        } else if (result.fonte.includes("PNCP (Local)")) {
-                                                            badgeColor = "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-100";
-                                                            badgeDot = "bg-blue-500";
+                                                        } else if (result.fonte.includes("SETOP")) {
+                                                            badgeColor = "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-100";
+                                                            badgeDot = "bg-orange-500";
+                                                        } else if (result.fonte.includes("SIMPRO")) {
+                                                            badgeColor = "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-100";
+                                                            badgeDot = "bg-purple-500";
+                                                        } else if (result.fonte.includes("SIGTAP")) {
+                                                            badgeColor = "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-100";
+                                                            badgeDot = "bg-cyan-500";
+                                                        } else if (result.fonte.includes("NFe")) {
+                                                            badgeColor = "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-100";
+                                                            badgeDot = "bg-amber-500";
                                                         }
 
                                                         return (

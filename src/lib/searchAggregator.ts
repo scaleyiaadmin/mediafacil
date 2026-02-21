@@ -6,6 +6,10 @@ export interface SearchFilters {
     includeBPS: boolean; // Agora CMED
     includeSINAPI: boolean;
     includeCATSER?: boolean;
+    includeSETOP?: boolean;
+    includeSIMPRO?: boolean;
+    includeSIGTAP?: boolean;
+    includeNFe?: boolean;
 }
 
 const dicionarioSinonimos: Record<string, string[]> = {
@@ -44,11 +48,15 @@ export async function searchAllSources(termo: string, filters: SearchFilters, fa
     const refSources = {
         catser: !!filters.includeCATSER,
         sinapi: filters.includeSINAPI,
-        cmed: filters.includeBPS
+        cmed: filters.includeBPS,
+        setop: !!filters.includeSETOP,
+        simpro: !!filters.includeSIMPRO,
+        sigtap: !!filters.includeSIGTAP,
+        nfe: !!filters.includeNFe
     };
 
-    if (refSources.catser || refSources.sinapi || refSources.cmed) {
-        searchPromises.push(searchReferences(termo, refSources));
+    if (Object.values(refSources).some(v => v)) {
+        searchPromises.push(searchReferences(termo, refSources as any));
     }
 
     // Executar todas as buscas em paralelo
