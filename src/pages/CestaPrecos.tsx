@@ -1,8 +1,7 @@
 import { useState, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import {
-    ShoppingBasket, ArrowLeft, ArrowRight, Minus, Plus, Trash2,
-    FileText, FileCheck, TrendingDown, Calculator, BarChart3, Loader2
+ShoppingBasket, ArrowLeft, Loader2,
+    TrendingDown, BarChart3
 } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
@@ -114,55 +113,6 @@ export default function CestaPrecos() {
         [itensAgrupados]
     );
 
-    const removerItem = (index: number) => {
-        const item = itens[index];
-        setItens(prev => prev.filter((_, i) => i !== index));
-        toast.info(`"${item.nome}" removido da cesta.`);
-    };
-
-    const atualizarQuantidade = (index: number, novaQtd: number) => {
-        if (novaQtd < 1) return;
-        setItens(prev => prev.map((item, i) =>
-            i === index ? { ...item, quantidade: novaQtd } : item
-        ));
-    };
-
-    const handleGerarRelatorio = () => {
-        if (itens.length === 0) {
-            toast.error("Adicione ao menos um item à cesta.");
-            return;
-        }
-        setIsNavigating(true);
-        navigate("/relatorio-final", {
-            state: {
-                orcamentoId,
-                itens,
-                nomeOrcamento,
-                entidade: entidade?.nome || "Prefeitura não identificada",
-                responsavel: profile?.nome || "Usuário não identificado",
-            }
-        });
-    };
-
-    const handleGerarAta = () => {
-        if (itens.length === 0) {
-            toast.error("Adicione ao menos um item à cesta.");
-            return;
-        }
-        setIsNavigating(true);
-        navigate("/ata-registro-precos", {
-            state: {
-                orcamentoId,
-                itens,
-                itensAgrupados,
-                nomeOrcamento,
-                entidade: entidade?.nome || "Prefeitura não identificada",
-                cnpjEntidade: "",
-                responsavel: profile?.nome || "Usuário não identificado",
-                totalGeral: totalGeralMedia
-            }
-        });
-    };
 
     // Cores por fonte
     const corFonte = (fonte: string): string => {
@@ -257,129 +207,14 @@ export default function CestaPrecos() {
 
                 <Separator />
 
-                {/* Tabela comparativa de itens condensada */}
-                <div className="rounded-lg border border-border bg-card shadow-sm overflow-hidden">
-                    <div className="px-4 py-3 border-b border-border bg-muted/30">
-                        <h3 className="text-sm font-bold text-foreground flex items-center gap-2 uppercase tracking-tight">
-                            <ShoppingBasket className="h-4 w-4 text-primary" />
-                            Itens da Cesta
-                        </h3>
-                    </div>
-
-                    {itens.length === 0 ? (
-                        <div className="p-12 text-center text-muted-foreground">
-                            <ShoppingBasket className="h-12 w-12 mx-auto mb-4 opacity-30" />
-                            <p className="font-medium">Sua cesta está vazia</p>
-                            <p className="text-sm mt-1">Volte e adicione itens para montar a cesta de preços.</p>
-                        </div>
-                    ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead>
-                                    <tr className="border-b border-border bg-muted/30">
-                                        <th className="text-left text-xs font-semibold text-muted-foreground px-4 py-3 min-w-[200px]">
-                                            Item
-                                        </th>
-                                        <th className="text-center text-xs font-semibold text-muted-foreground px-3 py-3 w-16">
-                                            Und
-                                        </th>
-                                        <th className="text-center text-xs font-semibold text-muted-foreground px-3 py-3 w-24">
-                                            Qtd
-                                        </th>
-                                        <th className="text-center text-xs font-semibold text-muted-foreground px-3 py-3">
-                                            Fonte
-                                        </th>
-                                        <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-3">
-                                            Preço Unit.
-                                        </th>
-                                        <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-3">
-                                            Total
-                                        </th>
-                                        <th className="text-center text-xs font-semibold text-muted-foreground px-3 py-3 w-16">
-                                            Ações
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-border">
-                                    {itens.map((item, index) => {
-                                        const total = (item.preco || 0) * (item.quantidade || 1);
-                                        return (
-                                            <tr key={`${item.id}-${index}`} className="hover:bg-muted/10 transition-colors border-b border-border last:border-0 text-xs">
-                                                <td className="px-4 py-2">
-                                                    <p className="font-bold text-foreground leading-tight uppercase text-[11px] tracking-tight">{item.nome}</p>
-                                                    {item.orgao && (
-                                                        <p className="text-[9px] text-muted-foreground mt-0.5 truncate max-w-[200px] opacity-70">
-                                                            {item.orgao}
-                                                        </p>
-                                                    )}
-                                                </td>
-                                                <td className="px-3 py-2 text-center font-medium opacity-70">
-                                                    {item.unidade}
-                                                </td>
-                                                <td className="px-3 py-3">
-                                                    <div className="flex items-center justify-center gap-1">
-                                                        <Button
-                                                            size="icon"
-                                                            variant="outline"
-                                                            className="h-6 w-6"
-                                                            onClick={() => atualizarQuantidade(index, item.quantidade - 1)}
-                                                        >
-                                                            <Minus className="h-3 w-3" />
-                                                        </Button>
-                                                        <Input
-                                                            type="number"
-                                                            min="1"
-                                                            value={item.quantidade}
-                                                            onChange={(e) => atualizarQuantidade(index, parseInt(e.target.value) || 1)}
-                                                            className="w-14 h-6 text-center text-xs"
-                                                        />
-                                                        <Button
-                                                            size="icon"
-                                                            variant="outline"
-                                                            className="h-6 w-6"
-                                                            onClick={() => atualizarQuantidade(index, item.quantidade + 1)}
-                                                        >
-                                                            <Plus className="h-3 w-3" />
-                                                        </Button>
-                                                    </div>
-                                                </td>
-                                                <td className="px-3 py-3 text-center">
-                                                    <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${corFonte(item.fonte)}`}>
-                                                        {item.fonte}
-                                                    </span>
-                                                </td>
-                                                <td className="px-3 py-2 text-right font-medium">
-                                                    R$ {item.preco?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                                </td>
-                                                <td className="px-3 py-2 text-right font-bold text-emerald-600">
-                                                    R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                                </td>
-                                                <td className="px-3 py-2 text-center">
-                                                    <Button
-                                                        size="icon"
-                                                        variant="ghost"
-                                                        className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                                        onClick={() => removerItem(index)}
-                                                    >
-                                                        <Trash2 className="h-3 w-3" />
-                                                    </Button>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                </div>
 
                 {/* Resumo de cálculos condensado */}
                 {itensAgrupados.length > 0 && (
                     <div className="rounded-lg border border-border bg-card shadow-sm overflow-hidden">
                         <div className="px-4 py-3 border-b border-border bg-muted/30">
                             <h3 className="text-sm font-bold text-foreground flex items-center gap-2 uppercase tracking-tight">
-                                <Calculator className="h-4 w-4 text-primary" />
-                                Resumo Consolidado
+                                <ShoppingBasket className="h-4 w-4 text-primary" />
+                                Itens da Cesta
                             </h3>
                         </div>
                         <div className="overflow-x-auto">
@@ -449,29 +284,6 @@ export default function CestaPrecos() {
                     </div>
                 )}
 
-                {/* Botões de ação */}
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-4 py-6">
-                    <Button
-                        size="lg"
-                        variant="outline"
-                        className="gap-2 w-full sm:w-auto"
-                        onClick={handleGerarRelatorio}
-                        disabled={isNavigating || itens.length === 0}
-                    >
-                        {isNavigating ? <Loader2 className="h-5 w-5 animate-spin" /> : <FileText className="h-5 w-5" />}
-                        Gerar Relatório de Preços
-                    </Button>
-
-                    <Button
-                        size="lg"
-                        className="gap-2 w-full sm:w-auto"
-                        onClick={handleGerarAta}
-                        disabled={isNavigating || itens.length === 0}
-                    >
-                        {isNavigating ? <Loader2 className="h-5 w-5 animate-spin" /> : <FileCheck className="h-5 w-5" />}
-                        Gerar Ata de Registro de Preços
-                    </Button>
-                </div>
             </div>
         </MainLayout>
     );
