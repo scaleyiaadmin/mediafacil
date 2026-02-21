@@ -30,13 +30,16 @@ async function syncPNCP2026() {
     const modalidades = [6, 13, 8, 10, 14, 15]; // Principais modalidades de contratação
 
     let totalSincronizado = 0;
+    const MAX_ITENS = 100000;
 
     try {
         for (const mod of modalidades) {
+            if (totalSincronizado >= MAX_ITENS) break;
             let pagina = 1;
             console.log(`\n=== 🔎 Consultando Modalidade: ${mod} ===`);
 
             while (true) {
+                if (totalSincronizado >= MAX_ITENS) break;
                 console.log(`  📄 Página ${pagina}...`);
                 const res = await fetch(`${consultaUrl}&pagina=${pagina}&codigoModalidadeContratacao=${mod}`);
                 if (!res.ok) {
@@ -52,6 +55,11 @@ async function syncPNCP2026() {
                 }
 
                 for (const contrato of contratos) {
+                    if (totalSincronizado >= MAX_ITENS) {
+                        console.log(`\n🛑 Limite de ${MAX_ITENS} itens atingido. Encerrando.`);
+                        break;
+                    }
+
                     const cnpj = contrato.orgaoEntidade.cnpj;
                     const ano = contrato.anoCompra;
                     const seq = contrato.sequencialCompra;
